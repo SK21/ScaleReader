@@ -19,9 +19,29 @@ namespace ScaleDisplay
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ScaleDisplay", "port.txt");
 
+        private static readonly string EmptyWeightFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ScaleDisplay", "emptyweight.txt");
+
         private static readonly string CsvDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "ScaleDisplay");
+
+        // Bushel weights in lb/bu — always pounds per bushel regardless of scale units
+        private static readonly Dictionary<string, decimal> CropBushelWeights = new Dictionary<string, decimal>
+        {
+            { "Wheat",     60m },
+            { "Corn",      56m },
+            { "Soybeans",  60m },
+            { "Barley",    48m },
+            { "Oats",      32m },
+            { "Canola",    50m },
+            { "Flax",      56m },
+            { "Rye",       56m },
+            { "Sunflower", 25m },
+            { "Peas",      60m },
+            { "None",       0m },
+        };
 
         private SerialPort _port;
         private System.Windows.Forms.Timer _signalTimer;
@@ -30,8 +50,14 @@ namespace ScaleDisplay
         private ScaleState _state = ScaleState.Empty;
         private DateTime? _stableStart;
         private int _loadNumber;
-        private float _currentWeight;
-        private string _currentUnits = "lb";
+        private float _currentWeight;           // in whatever units the scale sends
+        private string _currentUnits = "lb";    // "lb" or "kg"
+        private string _lastDisplayUnits = "";  // detect unit change to update labels
+
+        // Empty weight is always stored internally and on disk in kg.
+        // The numEmptyWeight control shows it converted to _currentUnits.
+        private float _emptyWeightKg = 0f;
+        private bool _suppressEmptyWeightSave = false;
 
         // Cached for safe access from the DataReceived background thread
         private volatile bool _autoWeighEnabled;
@@ -48,6 +74,7 @@ namespace ScaleDisplay
         {
             InitializeComponent();
             SetupGrids();
+            InitializeCropCombo();
             RefreshPorts();
 
             _signalTimer = new System.Windows.Forms.Timer();
@@ -61,11 +88,13 @@ namespace ScaleDisplay
 
         private void SetupGrids()
         {
-            SetupGrid(dgvReport, new[] { "Date / Time", "Load #", "Weight", "Units" },
-                                 new[] { 40, 15, 30, 15 });
+            SetupGrid(dgvReport,
+                new[] { "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
+                new[] { 30, 10, 22, 20, 18 });
 
-            SetupGrid(dgvTodayWeights, new[] { "Time", "Load #", "Weight", "Units" },
-                                       new[] { 30, 15, 40, 15 });
+            SetupGrid(dgvTodayWeights,
+                new[] { "Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
+                new[] { 18, 14, 22, 24, 22 });
         }
 
         private static void SetupGrid(DataGridView grid, string[] headers, int[] weights)
@@ -83,6 +112,122 @@ namespace ScaleDisplay
             }
         }
 
+        // ── Crop combo ───────────────────────────────────────────────────
+
+        private void InitializeCropCombo()
+        {
+            foreach (var crop in CropBushelWeights.Keys)
+                cmbCrop.Items.Add(crop);
+            cmbCrop.SelectedIndex = 0;
+        }
+
+        private void cmbCrop_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (CropBushelWeights.TryGetValue(cmbCrop.Text, out decimal bw))
+                numBushelWeight.Value = bw;
+            UpdateBushels();
+        }
+
+        private void numBushelWeight_ValueChanged(object sender, EventArgs e) => UpdateBushels();
+
+        // ── Empty / net weight ───────────────────────────────────────────
+
+        // Called whenever scale units are known or change. Updates labels and the
+        // empty weight display without triggering a file save.
+        private void ApplyUnits(string units)
+        {
+            if (units == _lastDisplayUnits) return;
+            _lastDisplayUnits = units;
+
+            lblEmptyLabel.Text = "Empty (" + units + "):";
+            lblNetLabel.Text   = "Net (" + units + "):";
+            SetEmptyWeightDisplay(_emptyWeightKg);
+        }
+
+        // Sets numEmptyWeight to the display-unit equivalent of the given kg value.
+        private void SetEmptyWeightDisplay(float kg)
+        {
+            _suppressEmptyWeightSave = true;
+            float displayVal = _currentUnits == "lb" ? kg * 2.20462f : kg;
+            decimal d = Math.Max(numEmptyWeight.Minimum,
+                        Math.Min(numEmptyWeight.Maximum, (decimal)Math.Round(displayVal)));
+            numEmptyWeight.Value = d;
+            _suppressEmptyWeightSave = false;
+        }
+
+        private void numEmptyWeight_ValueChanged(object sender, EventArgs e)
+        {
+            if (_suppressEmptyWeightSave) return;
+            float displayVal = (float)numEmptyWeight.Value;
+            _emptyWeightKg = _currentUnits == "lb" ? displayVal / 2.20462f : displayVal;
+            SaveEmptyWeight();
+            UpdateNet();
+            UpdateBushels();
+        }
+
+        private void SaveEmptyWeight()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(EmptyWeightFile));
+                File.WriteAllText(EmptyWeightFile, _emptyWeightKg.ToString("F2",
+                    CultureInfo.InvariantCulture));
+            }
+            catch { }
+        }
+
+        private void LoadEmptyWeight()
+        {
+            try
+            {
+                if (File.Exists(EmptyWeightFile) &&
+                    float.TryParse(File.ReadAllText(EmptyWeightFile).Trim(),
+                        NumberStyles.Float, CultureInfo.InvariantCulture, out float kg))
+                {
+                    _emptyWeightKg = kg;
+                    SetEmptyWeightDisplay(kg);
+                }
+            }
+            catch { }
+        }
+
+        // Net weight in kg (for CSV logging)
+        private float GetNetWeightKg()
+        {
+            float grossKg = _currentUnits == "lb" ? _currentWeight / 2.20462f : _currentWeight;
+            return grossKg - _emptyWeightKg;
+        }
+
+        // Net weight in lbs (for bushel calculation — bushel weights are lb/bu)
+        private float GetNetWeightLb()
+        {
+            return GetNetWeightKg() * 2.20462f;
+        }
+
+        // Net weight in current scale display units
+        private float GetNetWeightDisplay()
+        {
+            return _currentUnits == "lb" ? GetNetWeightLb() : GetNetWeightKg();
+        }
+
+        private void UpdateNet()
+        {
+            float net = GetNetWeightDisplay();
+            lblNetValue.Text = net >= 0 ? net.ToString("F1") : "---";
+        }
+
+        private void UpdateBushels()
+        {
+            float bw  = (float)numBushelWeight.Value; // lb/bu
+            float net = GetNetWeightLb();              // always lbs for bushel math
+            if (bw > 0 && net > 0)
+                lblBushelsValue.Text = (net / bw).ToString("F1");
+            else
+                lblBushelsValue.Text = "---";
+        }
+
+        // ── Today's weights ──────────────────────────────────────────────
+
         private void RefreshTodayWeights()
         {
             dgvTodayWeights.Rows.Clear();
@@ -93,10 +238,38 @@ namespace ScaleDisplay
             for (int i = 1; i < lines.Length; i++)
             {
                 string[] parts = lines[i].Split(',');
-                if (parts.Length == 4)
+                // New format: DateTime,Load,Crop,WeightKg,Bushels (5 cols)
+                // Old format: DateTime,Load,Crop,Weight,Units,Bushels (6 cols)
+                // Older:      DateTime,Load,Weight,Units (4 cols)
+                if (parts.Length >= 4)
                 {
-                    string time = parts[0].Length >= 19 ? parts[0].Substring(11, 8) : parts[0];
-                    dgvTodayWeights.Rows.Add(time, parts[1], parts[2], parts[3]);
+                    string time    = parts[0].Length >= 19 ? parts[0].Substring(11, 8) : parts[0];
+                    string load    = parts[1];
+                    string crop, weight, bushels;
+
+                    if (parts.Length >= 6)
+                    {
+                        // old 6-col format
+                        crop    = parts[2];
+                        weight  = parts[3];
+                        bushels = parts[5];
+                    }
+                    else if (parts.Length == 5)
+                    {
+                        // new 5-col format
+                        crop    = parts[2];
+                        weight  = parts[3];
+                        bushels = parts[4];
+                    }
+                    else
+                    {
+                        // 4-col legacy
+                        crop    = "";
+                        weight  = parts[2];
+                        bushels = "";
+                    }
+
+                    dgvTodayWeights.Rows.Add(time, load, crop, weight, bushels);
                 }
             }
 
@@ -142,6 +315,8 @@ namespace ScaleDisplay
                 lblWeightValue.BackColor = SystemColors.Control;
                 lblModeValue.Text = "---";
                 lblStatusValue.Text = "---";
+                lblBushelsValue.Text = "---";
+                lblNetValue.Text = "---";
                 ResetStateMachine();
                 return;
             }
@@ -185,32 +360,37 @@ namespace ScaleDisplay
                 if (parts.Length != 4) return;
 
                 string weightDisplay = parts[0] + " " + parts[1];
-                string mode = parts[2];
+                string mode   = parts[2];
                 string status = parts[3];
 
                 float.TryParse(parts[0], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out float weightVal);
 
+                string units = parts[1];
+
                 Color statusColor;
                 switch (status)
                 {
-                    case "Stable": statusColor = Color.Green; break;
+                    case "Stable": statusColor = Color.Green;      break;
                     case "Motion": statusColor = Color.DarkOrange; break;
-                    default: statusColor = Color.Red; break;
+                    default:       statusColor = Color.Red;         break;
                 }
 
                 _currentWeight = weightVal;
-                _currentUnits = parts[1];
+                _currentUnits  = units;
 
                 if (_autoWeighEnabled)
-                    RunStateMachine(weightVal, parts[1], status);
+                    RunStateMachine(weightVal, units, status);
 
                 Invoke(new Action(() =>
                 {
-                    lblWeightValue.Text = weightDisplay;
-                    lblModeValue.Text = mode;
-                    lblStatusValue.Text = status;
+                    ApplyUnits(units);
+                    lblWeightValue.Text      = weightDisplay;
+                    lblModeValue.Text        = mode;
+                    lblStatusValue.Text      = status;
                     lblStatusValue.ForeColor = statusColor;
+                    UpdateNet();
+                    UpdateBushels();
                 }));
             }
             catch { }
@@ -220,18 +400,21 @@ namespace ScaleDisplay
 
         private void RunStateMachine(float weight, string units, string status)
         {
-            int minWeight = _minWeightLbs;
+            int minWeight       = _minWeightLbs;
             int stabilityNeeded = _stabilitySeconds;
+
+            // Compare against minimum using lbs regardless of scale units
+            float weightLb = units == "kg" ? weight * 2.20462f : weight;
 
             switch (_state)
             {
                 case ScaleState.Empty:
-                    if (weight >= minWeight)
+                    if (weightLb >= minWeight)
                         _state = ScaleState.Settling;
                     break;
 
                 case ScaleState.Settling:
-                    if (weight < minWeight)
+                    if (weightLb < minWeight)
                     {
                         _state = ScaleState.Empty;
                         _stableStart = null;
@@ -248,12 +431,12 @@ namespace ScaleDisplay
                     }
                     else
                     {
-                        _stableStart = null;  // motion — restart stability timer
+                        _stableStart = null;
                     }
                     break;
 
                 case ScaleState.Captured:
-                    if (weight < minWeight)
+                    if (weightLb < minWeight)
                     {
                         _state = ScaleState.Empty;
                         _stableStart = null;
@@ -264,7 +447,22 @@ namespace ScaleDisplay
 
         private void CaptureWeight(float weight, string units)
         {
-            LogCapture(weight, units);
+            string crop  = "";
+            float  bw    = 60f;
+            float  emKg  = 0f;
+            Invoke(new Action(() =>
+            {
+                crop = cmbCrop.Text;
+                bw   = (float)numBushelWeight.Value;
+                emKg = _emptyWeightKg;
+            }));
+
+            float grossKg = units == "kg" ? weight : weight / 2.20462f;
+            float netKg   = grossKg - emKg;
+            float netLb   = netKg * 2.20462f;
+            float bushels = bw > 0 && netLb > 0 ? netLb / bw : 0f;
+
+            LogCapture(netKg, crop, bushels);
             SendRelay(true);
             Invoke(new Action(() =>
             {
@@ -277,8 +475,12 @@ namespace ScaleDisplay
 
         private void btnManualWeigh_Click(object sender, EventArgs e)
         {
-            if (_currentWeight <= 0) return;
-            LogCapture(_currentWeight, _currentUnits);
+            float netKg = GetNetWeightKg();
+            if (netKg <= 0) return;
+            float bw      = (float)numBushelWeight.Value;
+            float netLb   = netKg * 2.20462f;
+            float bushels = bw > 0 ? netLb / bw : 0f;
+            LogCapture(netKg, cmbCrop.Text, bushels);
             lblWeightValue.BackColor = Color.LightGreen;
             _signalTimer.Interval = _signalDurationSeconds * 1000;
             _signalTimer.Start();
@@ -323,7 +525,8 @@ namespace ScaleDisplay
             catch { _loadNumber = 0; }
         }
 
-        private int LogCapture(float weight, string units)
+        // Weight is always saved in kg. CSV format: DateTime,Load,Crop,WeightKg,Bushels
+        private int LogCapture(float weightKg, string crop, float bushels)
         {
             try
             {
@@ -333,14 +536,15 @@ namespace ScaleDisplay
                 if (!File.Exists(path))
                 {
                     _loadNumber = 0;
-                    File.AppendAllText(path, "DateTime,Load,Weight,Units\r\n");
+                    File.AppendAllText(path, "DateTime,Load,Crop,WeightKg,Bushels\r\n");
                 }
 
                 _loadNumber++;
 
-                File.AppendAllText(path, string.Format("{0},{1},{2:F1},{3}\r\n",
+                File.AppendAllText(path, string.Format(CultureInfo.InvariantCulture,
+                    "{0},{1},{2},{3:F1},{4:F1}\r\n",
                     DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    _loadNumber, weight, units));
+                    _loadNumber, crop, weightKg, bushels));
             }
             catch { }
 
@@ -354,7 +558,7 @@ namespace ScaleDisplay
             _autoWeighEnabled = chkAutoWeigh.Checked;
             numMinWeight.Enabled = chkAutoWeigh.Checked;
             numStability.Enabled = chkAutoWeigh.Checked;
-            numSignal.Enabled = chkAutoWeigh.Checked;
+            numSignal.Enabled    = chkAutoWeigh.Checked;
 
             if (!chkAutoWeigh.Checked)
             {
@@ -390,8 +594,34 @@ namespace ScaleDisplay
             for (int i = 1; i < lines.Length; i++)
             {
                 string[] parts = lines[i].Split(',');
-                if (parts.Length == 4)
-                    dgvReport.Rows.Add(parts[0], parts[1], parts[2], parts[3]);
+                if (parts.Length >= 4)
+                {
+                    string crop, weight, bushels;
+
+                    if (parts.Length >= 6)
+                    {
+                        // old 6-col format (Weight, Units separate)
+                        crop    = parts[2];
+                        weight  = parts[3];
+                        bushels = parts[5];
+                    }
+                    else if (parts.Length == 5)
+                    {
+                        // new 5-col format
+                        crop    = parts[2];
+                        weight  = parts[3];
+                        bushels = parts[4];
+                    }
+                    else
+                    {
+                        // 4-col legacy (no crop)
+                        crop    = "";
+                        weight  = parts[2];
+                        bushels = "";
+                    }
+
+                    dgvReport.Rows.Add(parts[0], parts[1], crop, weight, bushels);
+                }
             }
         }
 
@@ -412,10 +642,11 @@ namespace ScaleDisplay
                         row.Cells[0].Value?.ToString() ?? "",
                         row.Cells[1].Value?.ToString() ?? "",
                         row.Cells[2].Value?.ToString() ?? "",
-                        row.Cells[3].Value?.ToString() ?? ""
+                        row.Cells[3].Value?.ToString() ?? "",
+                        row.Cells[4].Value?.ToString() ?? ""
                     });
             }
-            _printDate = dtpReport.Value.Date;
+            _printDate    = dtpReport.Value.Date;
             _printRowIndex = 0;
 
             PrintDocument pd = new PrintDocument();
@@ -428,9 +659,9 @@ namespace ScaleDisplay
 
         private void PrintPage(object sender, PrintPageEventArgs e)
         {
-            Font titleFont = new Font("Arial", 13, FontStyle.Bold);
+            Font titleFont  = new Font("Arial", 13, FontStyle.Bold);
             Font headerFont = new Font("Arial", 9, FontStyle.Bold);
-            Font dataFont = new Font("Arial", 9);
+            Font dataFont   = new Font("Arial", 9);
             float lineH = dataFont.GetHeight(e.Graphics) + 3;
             float x = e.MarginBounds.Left;
             float y = e.MarginBounds.Top;
@@ -441,7 +672,8 @@ namespace ScaleDisplay
                 e.Graphics.DrawString(title, titleFont, Brushes.Black, x, y);
                 y += titleFont.GetHeight(e.Graphics) + 8;
 
-                DrawPrintRow(e.Graphics, headerFont, x, y, "Date / Time", "Load #", "Weight", "Units");
+                DrawPrintRow(e.Graphics, headerFont, x, y,
+                    "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels");
                 y += lineH;
                 e.Graphics.DrawLine(Pens.Black, x, y, e.MarginBounds.Right, y);
                 y += 4;
@@ -450,7 +682,8 @@ namespace ScaleDisplay
             while (_printRowIndex < _printRows.Count)
             {
                 string[] row = _printRows[_printRowIndex];
-                DrawPrintRow(e.Graphics, dataFont, x, y, row[0], row[1], row[2], row[3]);
+                DrawPrintRow(e.Graphics, dataFont, x, y,
+                    row[0], row[1], row[2], row[3], row[4]);
                 y += lineH;
                 _printRowIndex++;
 
@@ -465,12 +698,13 @@ namespace ScaleDisplay
         }
 
         private void DrawPrintRow(Graphics g, Font font, float x, float y,
-            string dateTime, string load, string weight, string units)
+            string dateTime, string load, string crop, string weight, string bushels)
         {
-            g.DrawString(dateTime, font, Brushes.Black, x, y);
-            g.DrawString(load, font, Brushes.Black, x + 155, y);
-            g.DrawString(weight, font, Brushes.Black, x + 215, y);
-            g.DrawString(units, font, Brushes.Black, x + 295, y);
+            g.DrawString(dateTime, font, Brushes.Black, x,       y);
+            g.DrawString(load,     font, Brushes.Black, x + 130, y);
+            g.DrawString(crop,     font, Brushes.Black, x + 175, y);
+            g.DrawString(weight,   font, Brushes.Black, x + 295, y);
+            g.DrawString(bushels,  font, Brushes.Black, x + 355, y);
         }
 
         // ── Position persistence ─────────────────────────────────────────
@@ -478,6 +712,9 @@ namespace ScaleDisplay
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+
+            LoadEmptyWeight();
+
             try
             {
                 if (File.Exists(PositionFile))
