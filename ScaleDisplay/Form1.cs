@@ -15,6 +15,10 @@ namespace ScaleDisplay
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ScaleDisplay", "position.txt");
 
+        private static readonly string PortFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ScaleDisplay", "port.txt");
+
         private static readonly string CsvDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "ScaleDisplay");
@@ -154,6 +158,12 @@ namespace ScaleDisplay
                 cmbPort.Enabled = false;
                 btnRefresh.Enabled = false;
                 btnManualWeigh.Enabled = true;
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(PortFile));
+                    File.WriteAllText(PortFile, cmbPort.SelectedItem.ToString());
+                }
+                catch { }
             }
             catch (Exception ex)
             {
@@ -486,6 +496,21 @@ namespace ScaleDisplay
                                 break;
                             }
                         }
+                    }
+                }
+            }
+            catch { }
+
+            // Auto-connect to last good port
+            try
+            {
+                if (File.Exists(PortFile))
+                {
+                    string savedPort = File.ReadAllText(PortFile).Trim();
+                    if (cmbPort.Items.Contains(savedPort))
+                    {
+                        cmbPort.SelectedItem = savedPort;
+                        btnConnect_Click(this, EventArgs.Empty);
                     }
                 }
             }

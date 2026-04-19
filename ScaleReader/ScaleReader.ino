@@ -2,16 +2,18 @@
 
 #define RELAY_PIN 5
 
-SoftwareSerial scaleSerial(3, -1);  // RX on D3, TX unused
+SoftwareSerial scaleSerial(3, -1, true);  // RX on D3, inverse_logic (opto inverts 20mA loop)
 
 String scaleLine = "";
 bool inFrame = false;
+unsigned long frameStart = 0;
 String cmdBuffer = "";
 
 void setup()
 {
 	Serial.begin(115200);
 	scaleSerial.begin(4800);
+	pinMode(3, INPUT_PULLUP);  // pull opto collector high when opto is off
 	pinMode(RELAY_PIN, OUTPUT);
 	digitalWrite(RELAY_PIN, LOW);
 }
@@ -29,11 +31,20 @@ void loop()
 			// STX = start of frame
 			scaleLine = "";
 			inFrame = true;
+			frameStart = millis();
 			return;
 		}
 
 		if (inFrame)
 		{
+			// Abandon frame if it takes too long or grows too large
+			if (millis() - frameStart > 500 || scaleLine.length() > 20)
+			{
+				inFrame = false;
+				scaleLine = "";
+				return;
+			}
+
 			if (c == '\n')
 			{
 				// LF = end of frame
@@ -55,7 +66,7 @@ void loop()
 		if (c == '\n')
 		{
 			cmdBuffer.trim();
-			if      (cmdBuffer == "RELAY:1") digitalWrite(RELAY_PIN, HIGH);
+			if (cmdBuffer == "RELAY:1") digitalWrite(RELAY_PIN, HIGH);
 			else if (cmdBuffer == "RELAY:0") digitalWrite(RELAY_PIN, LOW);
 			cmdBuffer = "";
 		}
@@ -81,37 +92,38 @@ void parseLine(String s)
 	if (s.length() > 10)
 	{
 		char polarity = s[0];
-		String data   = s.substring(1, 8);
-		char units    = s[8];   // 'L' or 'K'
-		char mode     = s[9];   // 'G' or 'N'
-		char status   = s[10];  // 'M', 'O', 'I', 'C', or space
+		String data = s.substring(1, 8);
+		char units = s[8];
+		char mode = s[9];
+		char status = s[10];
 
-		float weight = data.toFloat();
-		if (polarity == '-') weight = -weight;
-
-		const char* unitStr = (units == 'L') ? "lb" : "kg";
-		const char* modeStr = (mode  == 'G') ? "Gross" : "Net";
-		const char* statusStr;
-		switch (status)
+		if ((polarity == ' ' || polarity == '-') &&
+			(units == 'L' || units == 'K') &&
+			(mode == 'G' || mode == 'N'))
 		{
-		case 'M': statusStr = "Motion";     break;
-		case 'O': statusStr = "Over/Under"; break;
-		case 'I': statusStr = "Invalid";    break;
-		case 'C': statusStr = "Check Mode"; break;
-		default:  statusStr = "Stable";     break;
-		}
+			float weight = data.toFloat();
+			if (polarity == '-') weight = -weight;
 
-		// CSV: weight,units,mode,status
-		Serial.print(weight, 1);
-		Serial.print(',');
-		Serial.print(unitStr);
-		Serial.print(',');
-		Serial.print(modeStr);
-		Serial.print(',');
-		Serial.println(statusStr);
-	}
-	else
-	{
-		Serial.println("Bad frame: " + s);
+			const char* unitStr = (units == 'L') ? "lb" : "kg";
+			const char* modeStr = (mode == 'G') ? "Gross" : "Net";
+			const char* statusStr;
+			switch (status)
+			{
+			case 'M': statusStr = "Motion";     break;
+			case 'O': statusStr = "Over/Under"; break;
+			case 'I': statusStr = "Invalid";    break;
+			case 'C': statusStr = "Check Mode"; break;
+			default:  statusStr = "Stable";     break;
+			}
+
+			// CSV: weight,units,mode,status
+			Serial.print(weight, 1);
+			Serial.print(',');
+			Serial.print(unitStr);
+			Serial.print(',');
+			Serial.print(modeStr);
+			Serial.print(',');
+			Serial.println(statusStr);
+		}
 	}
 }
