@@ -11,6 +11,8 @@ namespace ScaleDisplay
 {
     public partial class Form1 : Form
     {
+        private const string AppVersion = "1.0.0";
+
         private static readonly string PositionFile = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ScaleDisplay", "position.txt");
@@ -23,6 +25,14 @@ namespace ScaleDisplay
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ScaleDisplay", "emptyweight.txt");
 
+        private static readonly string CropSettingsFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ScaleDisplay", "crop.txt");
+
+        private static readonly string AutoWeighSettingsFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ScaleDisplay", "autoweigh.txt");
+
         private static readonly string CsvDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "ScaleDisplay");
@@ -31,15 +41,15 @@ namespace ScaleDisplay
         private static readonly Dictionary<string, decimal> CropBushelWeights = new Dictionary<string, decimal>
         {
             { "Wheat",     60m },
-            { "Corn",      56m },
-            { "Soybeans",  60m },
+            { "Oats",      34m },
             { "Barley",    48m },
-            { "Oats",      32m },
-            { "Canola",    50m },
             { "Flax",      56m },
-            { "Rye",       56m },
-            { "Sunflower", 25m },
+            { "Canola",    50m },
             { "Peas",      60m },
+            { "Rye",       56m },
+            { "Soybeans",  60m },
+            { "Sunflower", 25m },
+            { "Corn",      56m },
             { "None",       0m },
         };
 
@@ -59,10 +69,24 @@ namespace ScaleDisplay
         private float _emptyWeightKg = 0f;
         private bool _suppressEmptyWeightSave = false;
 
+        // Gross weight captured for the current load (not persisted).
+        private float _grossWeightKg = 0f;
+        private bool _suppressGrossWeightSave = false;
+
+        private bool _settingsLoaded = false; // suppress saves until persisted values are restored
+
+        // Notes keyed by load number string; rebuilt on each RefreshTodayWeights.
+        private Dictionary<string, string> _notesByLoad = new Dictionary<string, string>();
+        private string _displayedNoteLoad = null; // load# whose note is in txtNote
+
+        // Notes for the currently loaded report date.
+        private Dictionary<string, string> _reportNotesByLoad = new Dictionary<string, string>();
+        private string _reportDisplayedLoad = null;
+
         // Cached for safe access from the DataReceived background thread
         private volatile bool _autoWeighEnabled;
         private volatile int _minWeightLbs = 10000;
-        private volatile int _stabilitySeconds = 3;
+        private volatile int _stabilitySeconds = 15;
         private volatile int _signalDurationSeconds = 5;
 
         // Print state
@@ -73,6 +97,7 @@ namespace ScaleDisplay
         public Form1()
         {
             InitializeComponent();
+            Text = "Scale Reader [Version " + AppVersion + "]";
             SetupGrids();
             InitializeCropCombo();
             RefreshPorts();
@@ -91,10 +116,21 @@ namespace ScaleDisplay
             SetupGrid(dgvReport,
                 new[] { "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
                 new[] { 40, 9, 20, 17, 14 });
+            RightAlignColumns(dgvReport, 3, 4);
 
             SetupGrid(dgvTodayWeights,
                 new[] { "Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
                 new[] { 18, 14, 22, 24, 22 });
+            RightAlignColumns(dgvTodayWeights, 3, 4);
+        }
+
+        private static void RightAlignColumns(DataGridView grid, params int[] indices)
+        {
+            foreach (int i in indices)
+            {
+                grid.Columns[i].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+                grid.Columns[i].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleRight;
+            }
         }
 
         private static void SetupGrid(DataGridView grid, string[] headers, int[] weights)
@@ -124,11 +160,49 @@ namespace ScaleDisplay
         private void cmbCrop_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (CropBushelWeights.TryGetValue(cmbCrop.Text, out decimal bw))
-                numBushelWeight.Value = bw;
+                try { numBushelWeight.Value = bw; } catch { }
+            SaveCropSettings();
             UpdateBushels();
         }
 
-        private void numBushelWeight_ValueChanged(object sender, EventArgs e) => UpdateBushels();
+        private void numBushelWeight_ValueChanged(object sender, EventArgs e)
+        {
+            SaveCropSettings();
+            UpdateBushels();
+        }
+
+        private void SaveCropSettings()
+        {
+            if (!_settingsLoaded) return;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(CropSettingsFile));
+                File.WriteAllText(CropSettingsFile,
+                    cmbCrop.Text + "," + numBushelWeight.Value.ToString(CultureInfo.InvariantCulture));
+            }
+            catch { }
+        }
+
+        private void LoadCropSettings()
+        {
+            try
+            {
+                if (!File.Exists(CropSettingsFile)) return;
+                string[] parts = File.ReadAllText(CropSettingsFile).Split(',');
+                if (parts.Length < 2) return;
+
+                string crop = parts[0];
+                if (cmbCrop.Items.Contains(crop))
+                {
+                    cmbCrop.SelectedItem = crop;   // sets default bw via SelectedIndexChanged
+                }
+                // Override with the saved custom bushel weight
+                if (decimal.TryParse(parts[1], NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out decimal bw))
+                    try { numBushelWeight.Value = bw; } catch { }
+            }
+            catch { }
+        }
 
         // ── Empty / net weight ───────────────────────────────────────────
 
@@ -139,8 +213,10 @@ namespace ScaleDisplay
             if (units == _lastDisplayUnits) return;
             _lastDisplayUnits = units;
 
+            lblGrossLabel.Text = "Gross (" + units + "):";
             lblEmptyLabel.Text = "Truck (" + units + "):";
-            lblNetLabel.Text   = "Net (" + units + "):";
+            lblNetLabel.Text = "Net (" + units + "):";
+            SetGrossWeightDisplay(_grossWeightKg);
             SetEmptyWeightDisplay(_emptyWeightKg);
         }
 
@@ -163,6 +239,41 @@ namespace ScaleDisplay
             SaveEmptyWeight();
             UpdateNet();
             UpdateBushels();
+        }
+
+        private void btnCaptureTruck_Click(object sender, EventArgs e)
+        {
+            if (_currentWeight <= 0) return;
+            decimal val = Math.Max(numEmptyWeight.Minimum,
+                          Math.Min(numEmptyWeight.Maximum, (decimal)Math.Round(_currentWeight)));
+            numEmptyWeight.Value = val;
+        }
+
+        private void SetGrossWeightDisplay(float kg)
+        {
+            _suppressGrossWeightSave = true;
+            float displayVal = _currentUnits == "lb" ? kg * 2.20462f : kg;
+            decimal d = Math.Max(numGrossWeight.Minimum,
+                        Math.Min(numGrossWeight.Maximum, (decimal)Math.Round(displayVal)));
+            numGrossWeight.Value = d;
+            _suppressGrossWeightSave = false;
+        }
+
+        private void numGrossWeight_ValueChanged(object sender, EventArgs e)
+        {
+            if (_suppressGrossWeightSave) return;
+            float displayVal = (float)numGrossWeight.Value;
+            _grossWeightKg = _currentUnits == "lb" ? displayVal / 2.20462f : displayVal;
+            UpdateNet();
+            UpdateBushels();
+        }
+
+        private void btnCaptureGross_Click(object sender, EventArgs e)
+        {
+            if (_currentWeight <= 0) return;
+            decimal val = Math.Max(numGrossWeight.Minimum,
+                          Math.Min(numGrossWeight.Maximum, (decimal)Math.Round(_currentWeight)));
+            numGrossWeight.Value = val;
         }
 
         private void SaveEmptyWeight()
@@ -191,37 +302,23 @@ namespace ScaleDisplay
             catch { }
         }
 
-        // Net weight in kg (for CSV logging)
-        private float GetNetWeightKg()
-        {
-            float grossKg = _currentUnits == "lb" ? _currentWeight / 2.20462f : _currentWeight;
-            return grossKg - _emptyWeightKg;
-        }
-
-        // Net weight in lbs (for bushel calculation — bushel weights are lb/bu)
-        private float GetNetWeightLb()
-        {
-            return GetNetWeightKg() * 2.20462f;
-        }
-
-        // Net weight in current scale display units
-        private float GetNetWeightDisplay()
-        {
-            return _currentUnits == "lb" ? GetNetWeightLb() : GetNetWeightKg();
-        }
+        // Net from captured gross (for CSV logging and bushels)
+        private float GetNetWeightKg() => _grossWeightKg - _emptyWeightKg;
+        private float GetNetWeightLb() => GetNetWeightKg() * 2.20462f;
+        private float GetNetWeightDisplay() => _currentUnits == "lb" ? GetNetWeightLb() : GetNetWeightKg();
 
         private void UpdateNet()
         {
             float net = GetNetWeightDisplay();
-            lblNetValue.Text = net >= 0 ? net.ToString("N1") : "---";
+            lblNetValue.Text = (_grossWeightKg > 0 && net >= 0) ? net.ToString("N0") : "---";
         }
 
         private void UpdateBushels()
         {
-            float bw  = (float)numBushelWeight.Value; // lb/bu
+            float bw = (float)numBushelWeight.Value; // lb/bu
             float net = GetNetWeightLb();              // always lbs for bushel math
             if (bw > 0 && net > 0)
-                lblBushelsValue.Text = (net / bw).ToString("N1");
+                lblBushelsValue.Text = (net / bw).ToString("N0");
             else
                 lblBushelsValue.Text = "---";
         }
@@ -230,6 +327,7 @@ namespace ScaleDisplay
 
         private void RefreshTodayWeights()
         {
+            _notesByLoad.Clear();
             dgvTodayWeights.Rows.Clear();
             string path = GetCsvPath(DateTime.Today);
             if (!File.Exists(path)) return;
@@ -238,38 +336,47 @@ namespace ScaleDisplay
             for (int i = 1; i < lines.Length; i++)
             {
                 string[] parts = lines[i].Split(',');
-                // New format: DateTime,Load,Crop,WeightKg,Bushels (5 cols)
-                // Old format: DateTime,Load,Crop,Weight,Units,Bushels (6 cols)
-                // Older:      DateTime,Load,Weight,Units (4 cols)
+                // Current: DateTime,Load,Crop,WeightKg,Bushels,Note (note may contain commas)
+                // Old 6-col: DateTime,Load,Crop,Weight,Units,Bushels
+                // Old 5-col: DateTime,Load,Crop,WeightKg,Bushels
+                // Legacy 4-col: DateTime,Load,Weight,Units
                 if (parts.Length >= 4)
                 {
-                    string time    = parts[0].Length >= 19 ? parts[0].Substring(11, 8) : parts[0];
-                    string load    = parts[1];
-                    string crop, weight, bushels;
+                    string time = parts[0].Length >= 19 ? parts[0].Substring(11, 8) : parts[0];
+                    DateTime t = DateTime.Parse(time);
+                    time = t.ToString("h:mm tt");
+                    string load = parts[1];
+                    string crop, weight, bushels, note;
 
-                    if (parts.Length >= 6)
+                    if (parts.Length >= 6 && IsUnitsField(parts[4]))
                     {
-                        // old 6-col format
-                        crop    = parts[2];
-                        weight  = parts[3];
+                        // old 6-col (Units column is "lb" or "kg")
+                        crop = parts[2];
+                        weight = parts[3];
                         bushels = parts[5];
+                        note = "";
                     }
-                    else if (parts.Length == 5)
+                    else if (parts.Length >= 5)
                     {
-                        // new 5-col format
-                        crop    = parts[2];
-                        weight  = parts[3];
+                        // current 5+ col: DateTime,Load,Crop,WeightKg,Bushels[,Note...]
+                        crop = parts[2];
+                        weight = parts[3];
                         bushels = parts[4];
+                        note = parts.Length >= 6
+                            ? string.Join(",", parts, 5, parts.Length - 5)
+                            : "";
                     }
                     else
                     {
                         // 4-col legacy
-                        crop    = "";
-                        weight  = parts[2];
+                        crop = "";
+                        weight = parts[2];
                         bushels = "";
+                        note = "";
                     }
 
-                    dgvTodayWeights.Rows.Add(time, load, crop, weight, bushels);
+                    _notesByLoad[load] = note;
+                    dgvTodayWeights.Rows.Add(time, load, crop, FormatKgStr(weight), FormatBushels(bushels));
                 }
             }
 
@@ -280,6 +387,68 @@ namespace ScaleDisplay
                 dgvTodayWeights.ClearSelection();
                 dgvTodayWeights.Rows[last].Selected = true;
             }
+        }
+
+        private static bool IsUnitsField(string s) => s == "lb" || s == "kg";
+
+        private static string FormatBushels(string raw) =>
+            float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)
+                ? (v > 0 ? v.ToString("N0") : "---") : raw;
+
+        private void FlushCurrentNote()
+        {
+            if (_displayedNoteLoad == null) return;
+            string current = txtNote.Text.Replace("\r\n", " ").Replace("\n", " ").Trim();
+            if (!_notesByLoad.TryGetValue(_displayedNoteLoad, out string stored) || current != stored)
+            {
+                _notesByLoad[_displayedNoteLoad] = current;
+                SaveNoteToCSV(_displayedNoteLoad, current);
+            }
+        }
+
+        private void dgvTodayWeights_SelectionChanged(object sender, EventArgs e)
+        {
+            FlushCurrentNote();
+
+            if (dgvTodayWeights.SelectedRows.Count == 0)
+            {
+                _displayedNoteLoad = null;
+                txtNote.Text = "";
+                return;
+            }
+
+            string load = dgvTodayWeights.SelectedRows[0].Cells[1].Value?.ToString() ?? "";
+            _displayedNoteLoad = load;
+            txtNote.Text = _notesByLoad.TryGetValue(load, out string note) ? note : "";
+        }
+
+        private void SaveNoteToCSV(string load, string note) =>
+            SaveNoteToCSV(load, note, DateTime.Today);
+
+        private void SaveNoteToCSV(string load, string note, DateTime date)
+        {
+            try
+            {
+                string path = GetCsvPath(date);
+                if (!File.Exists(path)) return;
+
+                string[] lines = File.ReadAllLines(path);
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    string[] parts = lines[i].Split(',');
+                    if (parts.Length < 2 || parts[1] != load) continue;
+
+                    // Rebuild the line: keep first 5 fields, replace/add note
+                    int keep = Math.Min(parts.Length, 5);
+                    string[] core = new string[5];
+                    for (int j = 0; j < 5; j++)
+                        core[j] = j < parts.Length ? parts[j] : "";
+                    lines[i] = string.Join(",", core) + "," + note;
+                    break;
+                }
+                File.WriteAllLines(path, lines);
+            }
+            catch { }
         }
 
         // ── Signal timer ─────────────────────────────────────────────────
@@ -315,11 +484,9 @@ namespace ScaleDisplay
                 btnConnect.Text = "Connect";
                 cmbPort.Enabled = true;
                 btnRefresh.Enabled = true;
-                btnManualWeigh.Enabled = false;
+                UpdateManualControls();
                 lblWeightValue.Text = "---";
                 lblWeightValue.BackColor = SystemColors.Control;
-                lblModeValue.Text = "---";
-                lblStatusValue.Text = "---";
                 lblBushelsValue.Text = "---";
                 lblNetValue.Text = "---";
                 ResetStateMachine();
@@ -337,7 +504,7 @@ namespace ScaleDisplay
                 btnConnect.Text = "Disconnect";
                 cmbPort.Enabled = false;
                 btnRefresh.Enabled = false;
-                btnManualWeigh.Enabled = true;
+                UpdateManualControls();
                 try
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(PortFile));
@@ -367,21 +534,12 @@ namespace ScaleDisplay
                 float.TryParse(parts[0], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out float weightVal);
 
-                string weightDisplay = weightVal.ToString("N1") + " " + parts[1];
-                string mode   = parts[2];
+                string weightDisplay = weightVal.ToString("N0") + " " + parts[1];
                 string status = parts[3];
-                string units  = parts[1];
-
-                Color statusColor;
-                switch (status)
-                {
-                    case "Stable": statusColor = Color.Green;      break;
-                    case "Motion": statusColor = Color.DarkOrange; break;
-                    default:       statusColor = Color.Red;         break;
-                }
+                string units = parts[1];
 
                 _currentWeight = weightVal;
-                _currentUnits  = units;
+                _currentUnits = units;
 
                 if (_autoWeighEnabled)
                     RunStateMachine(weightVal, units, status);
@@ -389,10 +547,7 @@ namespace ScaleDisplay
                 Invoke(new Action(() =>
                 {
                     ApplyUnits(units);
-                    lblWeightValue.Text      = weightDisplay;
-                    lblModeValue.Text        = mode;
-                    lblStatusValue.Text      = status;
-                    lblStatusValue.ForeColor = statusColor;
+                    lblWeightValue.Text = weightDisplay;
                     UpdateNet();
                     UpdateBushels();
                 }));
@@ -404,7 +559,7 @@ namespace ScaleDisplay
 
         private void RunStateMachine(float weight, string units, string status)
         {
-            int minWeight       = _minWeightLbs;
+            int minWeight = _minWeightLbs;
             int stabilityNeeded = _stabilitySeconds;
 
             // Compare against minimum using lbs regardless of scale units
@@ -451,45 +606,71 @@ namespace ScaleDisplay
 
         private void CaptureWeight(float weight, string units)
         {
-            string crop  = "";
-            float  bw    = 60f;
-            float  emKg  = 0f;
+            string crop = "";
+            string note = "";
+            float bw = 60f;
+            float emKg = 0f;
             Invoke(new Action(() =>
             {
                 crop = cmbCrop.Text;
-                bw   = (float)numBushelWeight.Value;
+                bw = (float)numBushelWeight.Value;
                 emKg = _emptyWeightKg;
+                note = _displayedNoteLoad == null
+                    ? txtNote.Text.Replace("\r\n", " ").Replace("\n", " ").Trim()
+                    : "";
+                FlushCurrentNote();
             }));
 
             float grossKg = units == "kg" ? weight : weight / 2.20462f;
-            float netKg   = grossKg - emKg;
-            float netLb   = netKg * 2.20462f;
+            float netKg = grossKg - emKg;
+            float netLb = netKg * 2.20462f;
             float bushels = bw > 0 && netLb > 0 ? netLb / bw : 0f;
 
-            LogCapture(netKg, crop, bushels);
+            LogCapture(netKg, crop, bushels, note);
             SendRelay(true);
             Invoke(new Action(() =>
             {
+                SetGrossWeightDisplay(grossKg); // show captured gross in the box
                 lblWeightValue.BackColor = Color.LightGreen;
                 _signalTimer.Interval = _signalDurationSeconds * 1000;
                 _signalTimer.Start();
-                RefreshTodayWeights();
+                RefreshTodayWeights(); // selects new row → SelectionChanged sets _displayedNoteLoad correctly
             }));
         }
 
         private void btnManualWeigh_Click(object sender, EventArgs e)
         {
+            if (_grossWeightKg <= 0)
+            {
+                MessageBox.Show("Capture the gross weight first.", "No Gross Weight",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             float netKg = GetNetWeightKg();
-            if (netKg <= 0) return;
-            float bw      = (float)numBushelWeight.Value;
-            float netLb   = netKg * 2.20462f;
+            if (netKg <= 0)
+            {
+                MessageBox.Show("Net weight is zero or negative. Check gross and truck weights.",
+                    "Invalid Weight", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            float bw = (float)numBushelWeight.Value;
+            float netLb = netKg * 2.20462f;
             float bushels = bw > 0 ? netLb / bw : 0f;
-            LogCapture(netKg, cmbCrop.Text, bushels);
+            // If a load is selected, txtNote shows that load's note — don't carry it to the new record.
+            // If nothing is selected the user typed a note intended for the new record — keep it.
+            string pendingNote = _displayedNoteLoad == null
+                ? txtNote.Text.Replace("\r\n", " ").Replace("\n", " ").Trim()
+                : "";
+            FlushCurrentNote(); // save edits for the currently selected load first
+            LogCapture(netKg, cmbCrop.Text, bushels, pendingNote);
+            // Prevent auto-weigh from also firing for this truck
+            _state = ScaleState.Captured;
+            _stableStart = null;
             lblWeightValue.BackColor = Color.LightGreen;
             _signalTimer.Interval = _signalDurationSeconds * 1000;
             _signalTimer.Start();
             SendRelay(true);
-            RefreshTodayWeights();
+            RefreshTodayWeights(); // selects new row → SelectionChanged sets _displayedNoteLoad correctly
         }
 
         private void btnDeleteWeight_Click(object sender, EventArgs e)
@@ -526,10 +707,12 @@ namespace ScaleDisplay
             }
 
             RefreshTodayWeights();
+            btnLoadReport_Click(this, EventArgs.Empty);
         }
 
         private void btnPrintReceipt_Click(object sender, EventArgs e)
         {
+            FlushCurrentNote();
             if (dgvTodayWeights.SelectedRows.Count == 0)
             {
                 MessageBox.Show("Select a load to print.", "Nothing Selected",
@@ -538,30 +721,28 @@ namespace ScaleDisplay
             }
 
             var row = dgvTodayWeights.SelectedRows[0];
-            string load    = row.Cells[1].Value?.ToString() ?? "";
-            string crop    = row.Cells[2].Value?.ToString() ?? "";
-            string weightStr = row.Cells[3].Value?.ToString() ?? "0";
+            string load = row.Cells[1].Value?.ToString() ?? "";
+            string crop = row.Cells[2].Value?.ToString() ?? "";
             string bushels = row.Cells[4].Value?.ToString() ?? "---";
 
-            // Reconstruct gross from net + truck weight (both in kg)
-            float.TryParse(weightStr, NumberStyles.Float,
-                CultureInfo.InvariantCulture, out float netKg);
-            float grossKg  = netKg + _emptyWeightKg;
+            float netKg = 0f;
             string dateStr = DateTime.Today.ToString("MMMM d, yyyy");
-
-            // Find full timestamp from CSV
             string timeStr = row.Cells[0].Value?.ToString() ?? "";
+
+            // Read raw values directly from CSV to avoid formatted-string parse issues
             try
             {
                 string path = GetCsvPath(DateTime.Today);
                 foreach (string line in File.ReadAllLines(path))
                 {
                     string[] p = line.Split(',');
-                    if (p.Length >= 2 && p[1] == load && !line.StartsWith("DateTime"))
+                    if (p.Length >= 4 && p[1] == load && !line.StartsWith("DateTime"))
                     {
+                        float.TryParse(p[3], NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out netKg);
                         if (p[0].Length >= 19 &&
                             DateTime.TryParseExact(p[0].Substring(11, 8), "HH:mm:ss",
-                                CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime t))
+                                CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime t))
                             timeStr = t.ToString("h:mm tt");
                         break;
                     }
@@ -569,16 +750,19 @@ namespace ScaleDisplay
             }
             catch { }
 
+            float grossKg = netKg + _emptyWeightKg;
+
             var receipt = new ReceiptData
             {
-                Date    = dateStr,
-                Time    = timeStr,
-                Load    = load,
-                Crop    = crop,
+                Date = dateStr,
+                Time = timeStr,
+                Load = load,
+                Crop = crop,
                 GrossKg = grossKg,
                 TruckKg = _emptyWeightKg,
-                NetKg   = netKg,
+                NetKg = netKg,
                 Bushels = bushels,
+                Note = _notesByLoad.TryGetValue(load, out string rn) ? rn : "",
             };
 
             PrintDocument pd = new PrintDocument();
@@ -591,24 +775,24 @@ namespace ScaleDisplay
 
         private struct ReceiptData
         {
-            public string Date, Time, Load, Crop, Bushels;
+            public string Date, Time, Load, Crop, Bushels, Note;
             public float GrossKg, TruckKg, NetKg;
         }
 
         private void PrintReceipt(PrintPageEventArgs e, ReceiptData r)
         {
-            Graphics g      = e.Graphics;
-            float x         = e.MarginBounds.Left;
-            float y         = e.MarginBounds.Top;
-            float pageW     = e.MarginBounds.Width;
-            float labelCol  = x;
-            float valueCol  = x + 120;
+            Graphics g = e.Graphics;
+            float x = e.MarginBounds.Left;
+            float y = e.MarginBounds.Top;
+            float pageW = e.MarginBounds.Width;
+            float labelCol = x;
+            float valueCol = x + 120;
 
-            Font titleFont  = new Font("Arial", 16, FontStyle.Bold);
-            Font headFont   = new Font("Arial", 10, FontStyle.Bold);
-            Font bodyFont   = new Font("Arial", 10);
-            Font bigFont    = new Font("Arial", 14, FontStyle.Bold);
-            Pen  divPen     = new Pen(Color.Black, 1);
+            Font titleFont = new Font("Arial", 16, FontStyle.Bold);
+            Font headFont = new Font("Arial", 10, FontStyle.Bold);
+            Font bodyFont = new Font("Arial", 10);
+            Font bigFont = new Font("Arial", 14, FontStyle.Bold);
+            Pen divPen = new Pen(Color.Black, 1);
 
             // Title
             string title = "SCALE RECEIPT";
@@ -619,44 +803,66 @@ namespace ScaleDisplay
             g.DrawLine(divPen, x, y, x + pageW, y);
             y += 10;
 
-            // Header fields
-            void Row(string label, string value, Font vFont = null)
+            float rightEdge = x + pageW;
+            StringFormat rightFmt = new StringFormat { Alignment = StringAlignment.Far };
+
+            void Row(string label, string value, Font vFont = null, bool rightAlign = false)
             {
                 g.DrawString(label, headFont, Brushes.Black, labelCol, y);
-                g.DrawString(value, vFont ?? bodyFont, Brushes.Black, valueCol, y);
+                Font vf = vFont ?? bodyFont;
+                if (rightAlign)
+                    g.DrawString(value, vf, Brushes.Black,
+                        new RectangleF(valueCol, y, rightEdge - valueCol, vf.GetHeight(g) + 4), rightFmt);
+                else
+                    g.DrawString(value, vf, Brushes.Black, valueCol, y);
                 y += headFont.GetHeight(g) + 4;
             }
 
-            Row("Date:",   r.Date);
-            Row("Time:",   r.Time);
+            Row("Date:", r.Date);
+            Row("Time:", r.Time);
             Row("Load #:", r.Load);
-            Row("Crop:",   string.IsNullOrEmpty(r.Crop) ? "---" : r.Crop);
+            Row("Crop:", string.IsNullOrEmpty(r.Crop) ? "---" : r.Crop);
             y += 6;
 
             g.DrawLine(divPen, x, y, x + pageW, y);
             y += 10;
 
             // Weights
-            Row("Gross:",   FormatKg(r.GrossKg) + " kg", bigFont);
-            Row("Truck:",   FormatKg(r.TruckKg)  + " kg", bigFont);
+            Row("Gross:", FormatKg(r.GrossKg) + " kg", bigFont, rightAlign: true);
+            Row("Truck:", FormatKg(r.TruckKg) + " kg", bigFont, rightAlign: true);
             y += 4;
             g.DrawLine(divPen, x, y, x + pageW, y);
             y += 6;
-            Row("Net:",     FormatKg(r.NetKg)    + " kg", bigFont);
+            Row("Net:", FormatKg(r.NetKg) + " kg", bigFont, rightAlign: true);
             y += 6;
 
             g.DrawLine(divPen, x, y, x + pageW, y);
             y += 10;
 
-            Row("Bushels:", r.Bushels + " bu", bigFont);
+            Row("Bushels:", r.Bushels + " bu", bigFont, rightAlign: true);
+
+            if (!string.IsNullOrWhiteSpace(r.Note))
+            {
+                y += 6;
+                g.DrawLine(divPen, x, y, x + pageW, y);
+                y += 10;
+                g.DrawString("Note:", headFont, Brushes.Black, labelCol, y);
+                y += headFont.GetHeight(g) + 2;
+                g.DrawString(r.Note, bodyFont, Brushes.Black,
+                    new RectangleF(x, y, pageW, e.MarginBounds.Bottom - y));
+            }
 
             titleFont.Dispose(); headFont.Dispose(); bodyFont.Dispose();
-            bigFont.Dispose();   divPen.Dispose();
+            bigFont.Dispose(); divPen.Dispose(); rightFmt.Dispose();
             e.HasMorePages = false;
         }
 
         private static string FormatKg(float kg) =>
-            kg.ToString("N1", CultureInfo.CurrentCulture);
+            kg.ToString("N0", CultureInfo.CurrentCulture);
+
+        private static string FormatKgStr(string raw) =>
+            float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)
+                ? FormatKg(v) : raw;
 
         private void SendRelay(bool on)
         {
@@ -687,16 +893,20 @@ namespace ScaleDisplay
                 string path = GetCsvPath(DateTime.Today);
                 if (!File.Exists(path)) { _loadNumber = 0; return; }
 
-                int count = 0;
+                _loadNumber = 0;
                 foreach (string line in File.ReadAllLines(path))
-                    if (!line.StartsWith("DateTime")) count++;
-                _loadNumber = count;
+                {
+                    if (line.StartsWith("DateTime")) continue;
+                    string[] p = line.Split(',');
+                    if (p.Length >= 2 && int.TryParse(p[1], out int n))
+                        _loadNumber = Math.Max(_loadNumber, n);
+                }
             }
             catch { _loadNumber = 0; }
         }
 
-        // Weight is always saved in kg. CSV format: DateTime,Load,Crop,WeightKg,Bushels
-        private int LogCapture(float weightKg, string crop, float bushels)
+        // Weight is always saved in kg. CSV format: DateTime,Load,Crop,WeightKg,Bushels,Note
+        private int LogCapture(float weightKg, string crop, float bushels, string note = "")
         {
             try
             {
@@ -706,15 +916,16 @@ namespace ScaleDisplay
                 if (!File.Exists(path))
                 {
                     _loadNumber = 0;
-                    File.AppendAllText(path, "DateTime,Load,Crop,WeightKg,Bushels\r\n");
+                    File.AppendAllText(path, "DateTime,Load,Crop,WeightKg,Bushels,Note\r\n");
                 }
 
                 _loadNumber++;
+                string safeNote = note.Replace("\r\n", " ").Replace("\n", " ").Trim();
 
                 File.AppendAllText(path, string.Format(CultureInfo.InvariantCulture,
-                    "{0},{1},{2},{3:F1},{4:F1}\r\n",
+                    "{0},{1},{2},{3:F1},{4:F1},{5}\r\n",
                     DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    _loadNumber, crop, weightKg, bushels));
+                    _loadNumber, crop, weightKg, bushels, safeNote));
             }
             catch { }
 
@@ -723,40 +934,109 @@ namespace ScaleDisplay
 
         // ── Auto-weigh control events ────────────────────────────────────
 
+        private void UpdateManualControls()
+        {
+            bool portOpen = _port != null && _port.IsOpen;
+            bool autoWeigh = chkAutoWeigh.Checked;
+            // Capture buttons need a live scale reading; manual entry and record work without one
+            btnCaptureGross.Enabled = portOpen && !autoWeigh;
+            btnCaptureTruck.Enabled = portOpen;
+            numGrossWeight.Enabled = !autoWeigh;
+            btnManualWeigh.Enabled = !autoWeigh;
+        }
+
         private void chkAutoWeigh_CheckedChanged(object sender, EventArgs e)
         {
             _autoWeighEnabled = chkAutoWeigh.Checked;
             numMinWeight.Enabled = chkAutoWeigh.Checked;
             numStability.Enabled = chkAutoWeigh.Checked;
-            numSignal.Enabled    = chkAutoWeigh.Checked;
+            numSignal.Enabled = chkAutoWeigh.Checked;
 
             if (!chkAutoWeigh.Checked)
             {
                 ResetStateMachine();
                 lblWeightValue.BackColor = SystemColors.Control;
             }
+            UpdateManualControls();
+            SaveAutoWeighSettings();
         }
 
-        private void numMinWeight_ValueChanged(object sender, EventArgs e) =>
+        private void numMinWeight_ValueChanged(object sender, EventArgs e)
+        {
             _minWeightLbs = (int)numMinWeight.Value;
+            SaveAutoWeighSettings();
+        }
 
-        private void numStability_ValueChanged(object sender, EventArgs e) =>
+        private void numStability_ValueChanged(object sender, EventArgs e)
+        {
             _stabilitySeconds = (int)numStability.Value;
+            SaveAutoWeighSettings();
+        }
 
-        private void numSignal_ValueChanged(object sender, EventArgs e) =>
+        private void numSignal_ValueChanged(object sender, EventArgs e)
+        {
             _signalDurationSeconds = (int)numSignal.Value;
+            SaveAutoWeighSettings();
+        }
+
+        private void SaveAutoWeighSettings()
+        {
+            if (!_settingsLoaded) return;
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(AutoWeighSettingsFile));
+                File.WriteAllText(AutoWeighSettingsFile, string.Format(
+                    CultureInfo.InvariantCulture, "{0},{1},{2},{3}",
+                    chkAutoWeigh.Checked ? 1 : 0,
+                    numMinWeight.Value,
+                    numStability.Value,
+                    numSignal.Value));
+            }
+            catch { }
+        }
+
+        private void LoadAutoWeighSettings()
+        {
+            try
+            {
+                if (!File.Exists(AutoWeighSettingsFile)) return;
+                string[] parts = File.ReadAllText(AutoWeighSettingsFile).Split(',');
+                if (parts.Length < 4) return;
+
+                if (int.TryParse(parts[0], out int en))
+                    chkAutoWeigh.Checked = en == 1;
+                if (decimal.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal minW))
+                    numMinWeight.Value = Math.Max(numMinWeight.Minimum, Math.Min(numMinWeight.Maximum, minW));
+                if (decimal.TryParse(parts[2], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal stab))
+                    numStability.Value = Math.Max(numStability.Minimum, Math.Min(numStability.Maximum, stab));
+                if (decimal.TryParse(parts[3], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sig))
+                    numSignal.Value = Math.Max(numSignal.Minimum, Math.Min(numSignal.Maximum, sig));
+            }
+            catch { }
+        }
 
         // ── Report tab ───────────────────────────────────────────────────
+
+        private void tabControl_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedTab == tabReport)
+                btnLoadReport_Click(this, EventArgs.Empty);
+        }
 
         private void btnLoadReport_Click(object sender, EventArgs e)
         {
             dgvReport.Rows.Clear();
+            _reportNotesByLoad.Clear();
+            _reportDisplayedLoad = null;
+            textBox1.Text = "";
             string path = GetCsvPath(dtpReport.Value.Date);
 
             if (!File.Exists(path))
             {
-                MessageBox.Show("No data file for " + dtpReport.Value.ToString("yyyy-MM-dd"),
-                    "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Suppress the message box when called automatically on startup
+                if (sender != this)
+                    MessageBox.Show("No data file for " + dtpReport.Value.ToString("yyyy-MM-dd"),
+                        "Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -766,33 +1046,63 @@ namespace ScaleDisplay
                 string[] parts = lines[i].Split(',');
                 if (parts.Length >= 4)
                 {
-                    string crop, weight, bushels;
+                    string load = parts[1];
+                    string crop, weight, bushels, note;
 
-                    if (parts.Length >= 6)
+                    if (parts.Length >= 6 && IsUnitsField(parts[4]))
                     {
-                        // old 6-col format (Weight, Units separate)
-                        crop    = parts[2];
-                        weight  = parts[3];
+                        // old 6-col (Units column is "lb" or "kg")
+                        crop = parts[2];
+                        weight = parts[3];
                         bushels = parts[5];
+                        note = "";
                     }
-                    else if (parts.Length == 5)
+                    else if (parts.Length >= 5)
                     {
-                        // new 5-col format
-                        crop    = parts[2];
-                        weight  = parts[3];
+                        // current: DateTime,Load,Crop,WeightKg,Bushels[,Note...]
+                        crop = parts[2];
+                        weight = parts[3];
                         bushels = parts[4];
+                        note = parts.Length >= 6
+                            ? string.Join(",", parts, 5, parts.Length - 5)
+                            : "";
                     }
                     else
                     {
-                        // 4-col legacy (no crop)
-                        crop    = "";
-                        weight  = parts[2];
+                        // 4-col legacy
+                        crop = "";
+                        weight = parts[2];
                         bushels = "";
+                        note = "";
                     }
 
-                    dgvReport.Rows.Add(parts[0], parts[1], crop, weight, bushels);
+                    _reportNotesByLoad[load] = note;
+                    string dtDisplay = parts[0];
+                    if (DateTime.TryParse(parts[0], out DateTime dt))
+                        dtDisplay = dt.ToString("yyyy-MM-dd h:mm tt");
+                    dgvReport.Rows.Add(dtDisplay, load, crop, FormatKgStr(weight), FormatBushels(bushels));
                 }
             }
+        }
+
+        private void dgvReport_SelectionChanged(object sender, EventArgs e)
+        {
+            // Flush edits for the previously selected row
+            if (_reportDisplayedLoad != null)
+            {
+                string edited = textBox1.Text.Replace("\r\n", " ").Replace("\n", " ").Trim();
+                if (!_reportNotesByLoad.TryGetValue(_reportDisplayedLoad, out string stored)
+                    || edited != stored)
+                {
+                    _reportNotesByLoad[_reportDisplayedLoad] = edited;
+                    SaveNoteToCSV(_reportDisplayedLoad, edited, dtpReport.Value.Date);
+                }
+            }
+
+            if (dgvReport.SelectedRows.Count == 0) { textBox1.Text = ""; _reportDisplayedLoad = null; return; }
+            string load = dgvReport.SelectedRows[0].Cells[1].Value?.ToString() ?? "";
+            _reportDisplayedLoad = load;
+            textBox1.Text = _reportNotesByLoad.TryGetValue(load, out string note) ? note : "";
         }
 
         private void btnPrint_Click(object sender, EventArgs e)
@@ -808,15 +1118,26 @@ namespace ScaleDisplay
             foreach (DataGridViewRow row in dgvReport.Rows)
             {
                 if (!row.IsNewRow)
+                {
+                    string load = row.Cells[1].Value?.ToString() ?? "";
+                    string rawWt = row.Cells[3].Value?.ToString() ?? "";
+                    string weight = float.TryParse(rawWt, NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out float wf)
+                        ? FormatKg(wf) : rawWt;
+                    string note = _reportNotesByLoad.TryGetValue(load, out string n) ? n : "";
+
+                    string dt = row.Cells[0].Value?.ToString() ?? "";
                     _printRows.Add(new string[] {
-                        row.Cells[0].Value?.ToString() ?? "",
-                        row.Cells[1].Value?.ToString() ?? "",
+                        dt,
+                        load,
                         row.Cells[2].Value?.ToString() ?? "",
-                        row.Cells[3].Value?.ToString() ?? "",
-                        row.Cells[4].Value?.ToString() ?? ""
+                        weight,
+                        row.Cells[4].Value?.ToString() ?? "",
+                        note
                     });
+                }
             }
-            _printDate    = dtpReport.Value.Date;
+            _printDate = dtpReport.Value.Date;
             _printRowIndex = 0;
 
             PrintDocument pd = new PrintDocument();
@@ -829,9 +1150,9 @@ namespace ScaleDisplay
 
         private void PrintPage(object sender, PrintPageEventArgs e)
         {
-            Font titleFont  = new Font("Arial", 13, FontStyle.Bold);
+            Font titleFont = new Font("Arial", 13, FontStyle.Bold);
             Font headerFont = new Font("Arial", 9, FontStyle.Bold);
-            Font dataFont   = new Font("Arial", 9);
+            Font dataFont = new Font("Arial", 9);
             float lineH = dataFont.GetHeight(e.Graphics) + 3;
             float x = e.MarginBounds.Left;
             float y = e.MarginBounds.Top;
@@ -842,8 +1163,8 @@ namespace ScaleDisplay
                 e.Graphics.DrawString(title, titleFont, Brushes.Black, x, y);
                 y += titleFont.GetHeight(e.Graphics) + 8;
 
-                DrawPrintRow(e.Graphics, headerFont, x, y,
-                    "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels");
+                DrawPrintRow(e.Graphics, headerFont, x, y, e.MarginBounds.Right,
+                    "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels", "Note");
                 y += lineH;
                 e.Graphics.DrawLine(Pens.Black, x, y, e.MarginBounds.Right, y);
                 y += 4;
@@ -852,8 +1173,8 @@ namespace ScaleDisplay
             while (_printRowIndex < _printRows.Count)
             {
                 string[] row = _printRows[_printRowIndex];
-                DrawPrintRow(e.Graphics, dataFont, x, y,
-                    row[0], row[1], row[2], row[3], row[4]);
+                DrawPrintRow(e.Graphics, dataFont, x, y, e.MarginBounds.Right,
+                    row[0], row[1], row[2], row[3], row[4], row[5]);
                 y += lineH;
                 _printRowIndex++;
 
@@ -867,14 +1188,22 @@ namespace ScaleDisplay
             e.HasMorePages = false;
         }
 
-        private void DrawPrintRow(Graphics g, Font font, float x, float y,
-            string dateTime, string load, string crop, string weight, string bushels)
+        private void DrawPrintRow(Graphics g, Font font, float x, float y, float pageRight,
+            string dateTime, string load, string crop, string weight, string bushels, string note)
         {
-            g.DrawString(dateTime, font, Brushes.Black, x,       y);
-            g.DrawString(load,     font, Brushes.Black, x + 130, y);
-            g.DrawString(crop,     font, Brushes.Black, x + 175, y);
-            g.DrawString(weight,   font, Brushes.Black, x + 295, y);
-            g.DrawString(bushels,  font, Brushes.Black, x + 355, y);
+            StringFormat right = new StringFormat { Alignment = StringAlignment.Far };
+            float rowH = font.GetHeight(g) + 2;
+
+            g.DrawString(dateTime, font, Brushes.Black, x, y);
+            g.DrawString(load, font, Brushes.Black, x + 130, y);
+            g.DrawString(crop, font, Brushes.Black, x + 183, y);
+            g.DrawString(weight, font, Brushes.Black, new RectangleF(x + 258, y, 70, rowH), right);
+            g.DrawString(bushels, font, Brushes.Black, new RectangleF(x + 333, y, 60, rowH), right);
+            if (!string.IsNullOrEmpty(note))
+                g.DrawString(note, font, Brushes.Black,
+                    new RectangleF(x + 398, y, pageRight - x - 398, rowH));
+
+            right.Dispose();
         }
 
         // ── Position persistence ─────────────────────────────────────────
@@ -884,6 +1213,9 @@ namespace ScaleDisplay
             base.OnLoad(e);
 
             LoadEmptyWeight();
+            LoadCropSettings();
+            LoadAutoWeighSettings();
+            _settingsLoaded = true;
 
             try
             {
@@ -922,11 +1254,28 @@ namespace ScaleDisplay
                 }
             }
             catch { }
+
+            // Pre-populate report with today's loads
+            btnLoadReport_Click(this, EventArgs.Empty);
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            _port?.Close();
+            if (_port != null)
+            {
+                // Unsubscribe first so no new DataReceived events fire and try to Invoke
+                // onto the closing form, then close on a background thread so the UI thread
+                // stays free to drain any Invoke already in flight (prevents deadlock).
+                _port.DataReceived -= Port_DataReceived;
+                var portToClose = _port;
+                _port = null;
+                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try { portToClose.Close(); } catch { }
+                    try { portToClose.Dispose(); } catch { }
+                });
+            }
+
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(PositionFile));
