@@ -36,6 +36,7 @@ namespace ScaleDisplay
             this.lblBushelsValue = new System.Windows.Forms.Label();
             this.dgvTodayWeights = new System.Windows.Forms.DataGridView();
             this.btnDeleteWeight = new System.Windows.Forms.Button();
+            this.btnPrintReceipt = new System.Windows.Forms.Button();
             this.tabSettings = new System.Windows.Forms.TabPage();
             this.lblPort = new System.Windows.Forms.Label();
             this.cmbPort = new System.Windows.Forms.ComboBox();
@@ -101,6 +102,7 @@ namespace ScaleDisplay
             this.tabWeight.Controls.Add(this.lblBushelsValue);
             this.tabWeight.Controls.Add(this.dgvTodayWeights);
             this.tabWeight.Controls.Add(this.btnDeleteWeight);
+            this.tabWeight.Controls.Add(this.btnPrintReceipt);
             this.tabWeight.Location = new System.Drawing.Point(4, 25);
             this.tabWeight.Name = "tabWeight";
             this.tabWeight.Padding = new System.Windows.Forms.Padding(5);
@@ -211,7 +213,7 @@ namespace ScaleDisplay
             this.lblEmptyLabel.Name = "lblEmptyLabel";
             this.lblEmptyLabel.Size = new System.Drawing.Size(76, 17);
             this.lblEmptyLabel.TabIndex = 13;
-            this.lblEmptyLabel.Text = "Empty (lb):";
+            this.lblEmptyLabel.Text = "Truck (lb):";
             //
             // numEmptyWeight
             //
@@ -219,8 +221,9 @@ namespace ScaleDisplay
             this.numEmptyWeight.Location = new System.Drawing.Point(90, 219);
             this.numEmptyWeight.Maximum = new decimal(new int[] { 200000, 0, 0, 0 });
             this.numEmptyWeight.Name = "numEmptyWeight";
-            this.numEmptyWeight.Size = new System.Drawing.Size(85, 23);
+            this.numEmptyWeight.Size = new System.Drawing.Size(95, 23);
             this.numEmptyWeight.TabIndex = 14;
+            this.numEmptyWeight.ThousandsSeparator = true;
             this.numEmptyWeight.ValueChanged += new System.EventHandler(this.numEmptyWeight_ValueChanged);
             //
             // lblNetLabel
@@ -279,6 +282,15 @@ namespace ScaleDisplay
             this.btnDeleteWeight.TabIndex = 17;
             this.btnDeleteWeight.Text = "Delete Selected";
             this.btnDeleteWeight.Click += new System.EventHandler(this.btnDeleteWeight_Click);
+            //
+            // btnPrintReceipt
+            //
+            this.btnPrintReceipt.Location = new System.Drawing.Point(145, 444);
+            this.btnPrintReceipt.Name = "btnPrintReceipt";
+            this.btnPrintReceipt.Size = new System.Drawing.Size(130, 26);
+            this.btnPrintReceipt.TabIndex = 18;
+            this.btnPrintReceipt.Text = "Print Receipt";
+            this.btnPrintReceipt.Click += new System.EventHandler(this.btnPrintReceipt_Click);
             //
             // tabSettings
             //
@@ -534,6 +546,7 @@ namespace ScaleDisplay
         private System.Windows.Forms.Label           lblBushelsValue;
         private System.Windows.Forms.DataGridView    dgvTodayWeights;
         private System.Windows.Forms.Button          btnDeleteWeight;
+        private System.Windows.Forms.Button          btnPrintReceipt;
 
         // Settings tab
         private System.Windows.Forms.Label           lblPort;

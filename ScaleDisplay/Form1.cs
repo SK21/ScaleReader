@@ -90,7 +90,7 @@ namespace ScaleDisplay
         {
             SetupGrid(dgvReport,
                 new[] { "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
-                new[] { 30, 10, 22, 20, 18 });
+                new[] { 40, 9, 20, 17, 14 });
 
             SetupGrid(dgvTodayWeights,
                 new[] { "Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
@@ -139,7 +139,7 @@ namespace ScaleDisplay
             if (units == _lastDisplayUnits) return;
             _lastDisplayUnits = units;
 
-            lblEmptyLabel.Text = "Empty (" + units + "):";
+            lblEmptyLabel.Text = "Truck (" + units + "):";
             lblNetLabel.Text   = "Net (" + units + "):";
             SetEmptyWeightDisplay(_emptyWeightKg);
         }
@@ -213,7 +213,7 @@ namespace ScaleDisplay
         private void UpdateNet()
         {
             float net = GetNetWeightDisplay();
-            lblNetValue.Text = net >= 0 ? net.ToString("F1") : "---";
+            lblNetValue.Text = net >= 0 ? net.ToString("N1") : "---";
         }
 
         private void UpdateBushels()
@@ -221,7 +221,7 @@ namespace ScaleDisplay
             float bw  = (float)numBushelWeight.Value; // lb/bu
             float net = GetNetWeightLb();              // always lbs for bushel math
             if (bw > 0 && net > 0)
-                lblBushelsValue.Text = (net / bw).ToString("F1");
+                lblBushelsValue.Text = (net / bw).ToString("N1");
             else
                 lblBushelsValue.Text = "---";
         }
@@ -274,7 +274,12 @@ namespace ScaleDisplay
             }
 
             if (dgvTodayWeights.Rows.Count > 0)
-                dgvTodayWeights.FirstDisplayedScrollingRowIndex = dgvTodayWeights.Rows.Count - 1;
+            {
+                int last = dgvTodayWeights.Rows.Count - 1;
+                dgvTodayWeights.FirstDisplayedScrollingRowIndex = last;
+                dgvTodayWeights.ClearSelection();
+                dgvTodayWeights.Rows[last].Selected = true;
+            }
         }
 
         // ── Signal timer ─────────────────────────────────────────────────
@@ -359,14 +364,13 @@ namespace ScaleDisplay
                 string[] parts = line.Split(',');
                 if (parts.Length != 4) return;
 
-                string weightDisplay = parts[0] + " " + parts[1];
-                string mode   = parts[2];
-                string status = parts[3];
-
                 float.TryParse(parts[0], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out float weightVal);
 
-                string units = parts[1];
+                string weightDisplay = weightVal.ToString("N1") + " " + parts[1];
+                string mode   = parts[2];
+                string status = parts[3];
+                string units  = parts[1];
 
                 Color statusColor;
                 switch (status)
@@ -487,6 +491,172 @@ namespace ScaleDisplay
             SendRelay(true);
             RefreshTodayWeights();
         }
+
+        private void btnDeleteWeight_Click(object sender, EventArgs e)
+        {
+            if (dgvTodayWeights.SelectedRows.Count == 0) return;
+
+            string load = dgvTodayWeights.SelectedRows[0].Cells[1].Value?.ToString() ?? "";
+
+            if (MessageBox.Show($"Delete Load #{load}?", "Confirm Delete",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                return;
+
+            string path = GetCsvPath(DateTime.Today);
+            if (!File.Exists(path)) return;
+
+            var lines = new System.Collections.Generic.List<string>(File.ReadAllLines(path));
+            lines.RemoveAll(line =>
+            {
+                if (line.StartsWith("DateTime")) return false;
+                string[] p = line.Split(',');
+                return p.Length >= 2 && p[1] == load;
+            });
+
+            File.WriteAllLines(path, lines);
+
+            // Update _loadNumber to the highest remaining load number
+            _loadNumber = 0;
+            foreach (string line in lines)
+            {
+                if (line.StartsWith("DateTime")) continue;
+                string[] p = line.Split(',');
+                if (p.Length >= 2 && int.TryParse(p[1], out int n))
+                    _loadNumber = Math.Max(_loadNumber, n);
+            }
+
+            RefreshTodayWeights();
+        }
+
+        private void btnPrintReceipt_Click(object sender, EventArgs e)
+        {
+            if (dgvTodayWeights.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Select a load to print.", "Nothing Selected",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var row = dgvTodayWeights.SelectedRows[0];
+            string load    = row.Cells[1].Value?.ToString() ?? "";
+            string crop    = row.Cells[2].Value?.ToString() ?? "";
+            string weightStr = row.Cells[3].Value?.ToString() ?? "0";
+            string bushels = row.Cells[4].Value?.ToString() ?? "---";
+
+            // Reconstruct gross from net + truck weight (both in kg)
+            float.TryParse(weightStr, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out float netKg);
+            float grossKg  = netKg + _emptyWeightKg;
+            string dateStr = DateTime.Today.ToString("MMMM d, yyyy");
+
+            // Find full timestamp from CSV
+            string timeStr = row.Cells[0].Value?.ToString() ?? "";
+            try
+            {
+                string path = GetCsvPath(DateTime.Today);
+                foreach (string line in File.ReadAllLines(path))
+                {
+                    string[] p = line.Split(',');
+                    if (p.Length >= 2 && p[1] == load && !line.StartsWith("DateTime"))
+                    {
+                        if (p[0].Length >= 19 &&
+                            DateTime.TryParseExact(p[0].Substring(11, 8), "HH:mm:ss",
+                                CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime t))
+                            timeStr = t.ToString("h:mm tt");
+                        break;
+                    }
+                }
+            }
+            catch { }
+
+            var receipt = new ReceiptData
+            {
+                Date    = dateStr,
+                Time    = timeStr,
+                Load    = load,
+                Crop    = crop,
+                GrossKg = grossKg,
+                TruckKg = _emptyWeightKg,
+                NetKg   = netKg,
+                Bushels = bushels,
+            };
+
+            PrintDocument pd = new PrintDocument();
+            pd.PrintPage += (s, pe) => PrintReceipt(pe, receipt);
+
+            PrintDialog dlg = new PrintDialog { Document = pd };
+            if (dlg.ShowDialog() == DialogResult.OK)
+                pd.Print();
+        }
+
+        private struct ReceiptData
+        {
+            public string Date, Time, Load, Crop, Bushels;
+            public float GrossKg, TruckKg, NetKg;
+        }
+
+        private void PrintReceipt(PrintPageEventArgs e, ReceiptData r)
+        {
+            Graphics g      = e.Graphics;
+            float x         = e.MarginBounds.Left;
+            float y         = e.MarginBounds.Top;
+            float pageW     = e.MarginBounds.Width;
+            float labelCol  = x;
+            float valueCol  = x + 120;
+
+            Font titleFont  = new Font("Arial", 16, FontStyle.Bold);
+            Font headFont   = new Font("Arial", 10, FontStyle.Bold);
+            Font bodyFont   = new Font("Arial", 10);
+            Font bigFont    = new Font("Arial", 14, FontStyle.Bold);
+            Pen  divPen     = new Pen(Color.Black, 1);
+
+            // Title
+            string title = "SCALE RECEIPT";
+            SizeF ts = g.MeasureString(title, titleFont);
+            g.DrawString(title, titleFont, Brushes.Black, x + (pageW - ts.Width) / 2, y);
+            y += ts.Height + 6;
+
+            g.DrawLine(divPen, x, y, x + pageW, y);
+            y += 10;
+
+            // Header fields
+            void Row(string label, string value, Font vFont = null)
+            {
+                g.DrawString(label, headFont, Brushes.Black, labelCol, y);
+                g.DrawString(value, vFont ?? bodyFont, Brushes.Black, valueCol, y);
+                y += headFont.GetHeight(g) + 4;
+            }
+
+            Row("Date:",   r.Date);
+            Row("Time:",   r.Time);
+            Row("Load #:", r.Load);
+            Row("Crop:",   string.IsNullOrEmpty(r.Crop) ? "---" : r.Crop);
+            y += 6;
+
+            g.DrawLine(divPen, x, y, x + pageW, y);
+            y += 10;
+
+            // Weights
+            Row("Gross:",   FormatKg(r.GrossKg) + " kg", bigFont);
+            Row("Truck:",   FormatKg(r.TruckKg)  + " kg", bigFont);
+            y += 4;
+            g.DrawLine(divPen, x, y, x + pageW, y);
+            y += 6;
+            Row("Net:",     FormatKg(r.NetKg)    + " kg", bigFont);
+            y += 6;
+
+            g.DrawLine(divPen, x, y, x + pageW, y);
+            y += 10;
+
+            Row("Bushels:", r.Bushels + " bu", bigFont);
+
+            titleFont.Dispose(); headFont.Dispose(); bodyFont.Dispose();
+            bigFont.Dispose();   divPen.Dispose();
+            e.HasMorePages = false;
+        }
+
+        private static string FormatKg(float kg) =>
+            kg.ToString("N1", CultureInfo.CurrentCulture);
 
         private void SendRelay(bool on)
         {
