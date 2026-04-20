@@ -17,6 +17,7 @@ namespace ScaleDisplay
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+            this.toolTip = new System.Windows.Forms.ToolTip();
             this.tabControl = new System.Windows.Forms.TabControl();
             this.tabWeight = new System.Windows.Forms.TabPage();
             this.lblWeightValue = new System.Windows.Forms.Label();
@@ -50,6 +51,8 @@ namespace ScaleDisplay
             this.btnConnect = new System.Windows.Forms.Button();
             this.grpAutoWeigh = new System.Windows.Forms.GroupBox();
             this.chkAutoWeigh = new System.Windows.Forms.CheckBox();
+            this.lblInterval = new System.Windows.Forms.Label();
+            this.numInterval = new System.Windows.Forms.NumericUpDown();
             this.lblMinWeight = new System.Windows.Forms.Label();
             this.numMinWeight = new System.Windows.Forms.NumericUpDown();
             this.lblStability = new System.Windows.Forms.Label();
@@ -73,6 +76,7 @@ namespace ScaleDisplay
             this.tabSettings.SuspendLayout();
             this.grpUnits.SuspendLayout();
             this.grpAutoWeigh.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
@@ -403,6 +407,8 @@ namespace ScaleDisplay
             // grpAutoWeigh
             // 
             this.grpAutoWeigh.Controls.Add(this.chkAutoWeigh);
+            this.grpAutoWeigh.Controls.Add(this.lblInterval);
+            this.grpAutoWeigh.Controls.Add(this.numInterval);
             this.grpAutoWeigh.Controls.Add(this.lblMinWeight);
             this.grpAutoWeigh.Controls.Add(this.numMinWeight);
             this.grpAutoWeigh.Controls.Add(this.lblStability);
@@ -411,7 +417,7 @@ namespace ScaleDisplay
             this.grpAutoWeigh.Controls.Add(this.numSignal);
             this.grpAutoWeigh.Location = new System.Drawing.Point(12, 74);
             this.grpAutoWeigh.Name = "grpAutoWeigh";
-            this.grpAutoWeigh.Size = new System.Drawing.Size(482, 160);
+            this.grpAutoWeigh.Size = new System.Drawing.Size(482, 193);
             this.grpAutoWeigh.TabIndex = 4;
             this.grpAutoWeigh.TabStop = false;
             this.grpAutoWeigh.Text = "Auto Weigh";
@@ -420,7 +426,7 @@ namespace ScaleDisplay
             //
             this.grpUnits.Controls.Add(this.rdoImperial);
             this.grpUnits.Controls.Add(this.rdoMetric);
-            this.grpUnits.Location = new System.Drawing.Point(12, 244);
+            this.grpUnits.Location = new System.Drawing.Point(12, 277);
             this.grpUnits.Name = "grpUnits";
             this.grpUnits.Size = new System.Drawing.Size(482, 55);
             this.grpUnits.TabIndex = 5;
@@ -557,7 +563,29 @@ namespace ScaleDisplay
             0,
             0});
             this.numSignal.ValueChanged += new System.EventHandler(this.numSignal_ValueChanged);
-            // 
+            //
+            // lblInterval
+            //
+            this.lblInterval.AutoSize = true;
+            this.lblInterval.Location = new System.Drawing.Point(10, 149);
+            this.lblInterval.Name = "lblInterval";
+            this.lblInterval.Size = new System.Drawing.Size(100, 17);
+            this.lblInterval.TabIndex = 5;
+            this.lblInterval.Text = "Min Interval (s):";
+            //
+            // numInterval
+            //
+            this.numInterval.Enabled = false;
+            this.numInterval.Increment = new decimal(new int[] { 30, 0, 0, 0 });
+            this.numInterval.Location = new System.Drawing.Point(130, 146);
+            this.numInterval.Maximum = new decimal(new int[] { 3600, 0, 0, 0 });
+            this.numInterval.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            this.numInterval.Name = "numInterval";
+            this.numInterval.Size = new System.Drawing.Size(65, 23);
+            this.numInterval.TabIndex = 5;
+            this.numInterval.Value = new decimal(new int[] { 0, 0, 0, 0 });
+            this.numInterval.ValueChanged += new System.EventHandler(this.numInterval_ValueChanged);
+            //
             // tabReport
             // 
             this.tabReport.Controls.Add(this.label1);
@@ -651,6 +679,12 @@ namespace ScaleDisplay
             this.Name = "Form1";
             this.Text = "Scale Reader";
             this.TopMost = true;
+            this.toolTip.SetToolTip(this.lblStability,  "Seconds the weight must remain stable before a load is recorded");
+            this.toolTip.SetToolTip(this.numStability,  "Seconds the weight must remain stable before a load is recorded");
+            this.toolTip.SetToolTip(this.lblSignal,     "Seconds the output relay stays active after a load is captured");
+            this.toolTip.SetToolTip(this.numSignal,     "Seconds the output relay stays active after a load is captured");
+            this.toolTip.SetToolTip(this.lblInterval,   "Minimum seconds between captures — prevents double-recording a truck");
+            this.toolTip.SetToolTip(this.numInterval,   "Minimum seconds between captures — prevents double-recording a truck");
             this.tabControl.ResumeLayout(false);
             this.tabWeight.ResumeLayout(false);
             this.tabWeight.PerformLayout();
@@ -664,6 +698,7 @@ namespace ScaleDisplay
             this.grpUnits.PerformLayout();
             this.grpAutoWeigh.ResumeLayout(false);
             this.grpAutoWeigh.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numInterval)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).EndInit();
@@ -673,6 +708,8 @@ namespace ScaleDisplay
             this.ResumeLayout(false);
 
         }
+
+        private System.Windows.Forms.ToolTip         toolTip;
 
         // Tabs
         private System.Windows.Forms.TabControl  tabControl;
@@ -716,6 +753,8 @@ namespace ScaleDisplay
         private System.Windows.Forms.NumericUpDown   numStability;
         private System.Windows.Forms.Label           lblSignal;
         private System.Windows.Forms.NumericUpDown   numSignal;
+        private System.Windows.Forms.Label           lblInterval;
+        private System.Windows.Forms.NumericUpDown   numInterval;
         private System.Windows.Forms.GroupBox        grpUnits;
         private System.Windows.Forms.RadioButton     rdoImperial;
         private System.Windows.Forms.RadioButton     rdoMetric;

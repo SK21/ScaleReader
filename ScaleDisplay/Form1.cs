@@ -88,7 +88,9 @@ namespace ScaleDisplay
         // Cached for safe access from the DataReceived background thread
         private volatile bool _autoWeighEnabled;
         private volatile int _minWeightLbs = 10000;
-        private volatile string _manualUnits = "lb"; // "lb" or "kg"; user-controlled
+        private volatile int _minIntervalSeconds = 0;
+        private volatile string _manualUnits = "lb";
+        private DateTime _lastCaptureTime = DateTime.MinValue; // "lb" or "kg"; user-controlled
         private volatile int _stabilitySeconds = 15;
         private volatile int _signalDurationSeconds = 5;
 
@@ -589,7 +591,9 @@ namespace ScaleDisplay
             switch (_state)
             {
                 case ScaleState.Empty:
-                    if (weightLb >= minWeight)
+                    bool intervalElapsed = _minIntervalSeconds == 0 ||
+                        (DateTime.Now - _lastCaptureTime).TotalSeconds >= _minIntervalSeconds;
+                    if (weightLb >= minWeight && intervalElapsed)
                         _state = ScaleState.Settling;
                     break;
 
@@ -606,6 +610,7 @@ namespace ScaleDisplay
                         else if ((DateTime.Now - _stableStart.Value).TotalSeconds >= stabilityNeeded)
                         {
                             _state = ScaleState.Captured;
+                            _lastCaptureTime = DateTime.Now;
                             CaptureWeight(weight, units);
                         }
                     }
@@ -984,6 +989,7 @@ namespace ScaleDisplay
             numMinWeight.Enabled = chkAutoWeigh.Checked;
             numStability.Enabled = chkAutoWeigh.Checked;
             numSignal.Enabled = chkAutoWeigh.Checked;
+            numInterval.Enabled = chkAutoWeigh.Checked;
 
             if (!chkAutoWeigh.Checked)
             {
@@ -1024,6 +1030,12 @@ namespace ScaleDisplay
             SaveAutoWeighSettings();
         }
 
+        private void numInterval_ValueChanged(object sender, EventArgs e)
+        {
+            _minIntervalSeconds = (int)numInterval.Value;
+            SaveAutoWeighSettings();
+        }
+
         private void SaveAutoWeighSettings()
         {
             if (!_settingsLoaded) return;
@@ -1031,12 +1043,13 @@ namespace ScaleDisplay
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(AutoWeighSettingsFile));
                 File.WriteAllText(AutoWeighSettingsFile, string.Format(
-                    CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4}",
+                    CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5}",
                     chkAutoWeigh.Checked ? 1 : 0,
                     numMinWeight.Value,
                     numStability.Value,
                     numSignal.Value,
-                    _manualUnits));
+                    _manualUnits,
+                    numInterval.Value));
             }
             catch { }
         }
@@ -1064,6 +1077,8 @@ namespace ScaleDisplay
                     rdoMetric.Checked = _manualUnits == "kg";
                     rdoImperial.Checked = _manualUnits == "lb";
                 }
+                if (parts.Length >= 6 && decimal.TryParse(parts[5], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal interval))
+                    numInterval.Value = Math.Max(numInterval.Minimum, Math.Min(numInterval.Maximum, interval));
             }
             catch { }
         }
