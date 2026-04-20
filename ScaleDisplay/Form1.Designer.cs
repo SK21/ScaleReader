@@ -16,8 +16,17 @@ namespace ScaleDisplay
 
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
-            this.toolTip = new System.Windows.Forms.ToolTip();
+            this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.lblStability = new System.Windows.Forms.Label();
+            this.numStability = new System.Windows.Forms.NumericUpDown();
+            this.lblSignal = new System.Windows.Forms.Label();
+            this.numSignal = new System.Windows.Forms.NumericUpDown();
+            this.lblInterval = new System.Windows.Forms.Label();
+            this.numInterval = new System.Windows.Forms.NumericUpDown();
+            this.lblTolerance = new System.Windows.Forms.Label();
+            this.numTolerance = new System.Windows.Forms.NumericUpDown();
             this.tabControl = new System.Windows.Forms.TabControl();
             this.tabWeight = new System.Windows.Forms.TabPage();
             this.lblWeightValue = new System.Windows.Forms.Label();
@@ -42,23 +51,17 @@ namespace ScaleDisplay
             this.btnDeleteWeight = new System.Windows.Forms.Button();
             this.btnPrintReceipt = new System.Windows.Forms.Button();
             this.tabSettings = new System.Windows.Forms.TabPage();
-            this.grpUnits = new System.Windows.Forms.GroupBox();
-            this.rdoImperial = new System.Windows.Forms.RadioButton();
-            this.rdoMetric = new System.Windows.Forms.RadioButton();
             this.lblPort = new System.Windows.Forms.Label();
             this.cmbPort = new System.Windows.Forms.ComboBox();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnConnect = new System.Windows.Forms.Button();
             this.grpAutoWeigh = new System.Windows.Forms.GroupBox();
             this.chkAutoWeigh = new System.Windows.Forms.CheckBox();
-            this.lblInterval = new System.Windows.Forms.Label();
-            this.numInterval = new System.Windows.Forms.NumericUpDown();
             this.lblMinWeight = new System.Windows.Forms.Label();
             this.numMinWeight = new System.Windows.Forms.NumericUpDown();
-            this.lblStability = new System.Windows.Forms.Label();
-            this.numStability = new System.Windows.Forms.NumericUpDown();
-            this.lblSignal = new System.Windows.Forms.Label();
-            this.numSignal = new System.Windows.Forms.NumericUpDown();
+            this.grpUnits = new System.Windows.Forms.GroupBox();
+            this.rdoImperial = new System.Windows.Forms.RadioButton();
+            this.rdoMetric = new System.Windows.Forms.RadioButton();
             this.tabReport = new System.Windows.Forms.TabPage();
             this.label1 = new System.Windows.Forms.Label();
             this.textBox1 = new System.Windows.Forms.TextBox();
@@ -67,6 +70,10 @@ namespace ScaleDisplay
             this.btnLoadReport = new System.Windows.Forms.Button();
             this.dgvReport = new System.Windows.Forms.DataGridView();
             this.btnPrint = new System.Windows.Forms.Button();
+            ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numTolerance)).BeginInit();
             this.tabControl.SuspendLayout();
             this.tabWeight.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numBushelWeight)).BeginInit();
@@ -74,15 +81,152 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).BeginInit();
             this.tabSettings.SuspendLayout();
-            this.grpUnits.SuspendLayout();
             this.grpAutoWeigh.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
+            this.grpUnits.SuspendLayout();
             this.tabReport.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).BeginInit();
             this.SuspendLayout();
+            // 
+            // lblStability
+            // 
+            this.lblStability.AutoSize = true;
+            this.lblStability.Location = new System.Drawing.Point(10, 155);
+            this.lblStability.Name = "lblStability";
+            this.lblStability.Size = new System.Drawing.Size(82, 17);
+            this.lblStability.TabIndex = 2;
+            this.lblStability.Text = "Stability (s):";
+            this.toolTip.SetToolTip(this.lblStability, "Seconds the weight must remain stable before a load is recorded");
+            // 
+            // numStability
+            // 
+            this.numStability.Enabled = false;
+            this.numStability.Location = new System.Drawing.Point(130, 152);
+            this.numStability.Maximum = new decimal(new int[] {
+            60,
+            0,
+            0,
+            0});
+            this.numStability.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numStability.Name = "numStability";
+            this.numStability.Size = new System.Drawing.Size(52, 23);
+            this.numStability.TabIndex = 2;
+            this.toolTip.SetToolTip(this.numStability, "Seconds the weight must remain stable before a load is recorded");
+            this.numStability.Value = new decimal(new int[] {
+            15,
+            0,
+            0,
+            0});
+            this.numStability.ValueChanged += new System.EventHandler(this.numStability_ValueChanged);
+            // 
+            // lblSignal
+            // 
+            this.lblSignal.AutoSize = true;
+            this.lblSignal.Location = new System.Drawing.Point(10, 190);
+            this.lblSignal.Name = "lblSignal";
+            this.lblSignal.Size = new System.Drawing.Size(103, 17);
+            this.lblSignal.TabIndex = 3;
+            this.lblSignal.Text = "Notification (s):";
+            this.toolTip.SetToolTip(this.lblSignal, "Seconds the output relay stays active after a load is captured");
+            // 
+            // numSignal
+            // 
+            this.numSignal.Enabled = false;
+            this.numSignal.Location = new System.Drawing.Point(130, 187);
+            this.numSignal.Maximum = new decimal(new int[] {
+            60,
+            0,
+            0,
+            0});
+            this.numSignal.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numSignal.Name = "numSignal";
+            this.numSignal.Size = new System.Drawing.Size(52, 23);
+            this.numSignal.TabIndex = 3;
+            this.toolTip.SetToolTip(this.numSignal, "Seconds the output relay stays active after a load is captured");
+            this.numSignal.Value = new decimal(new int[] {
+            5,
+            0,
+            0,
+            0});
+            this.numSignal.ValueChanged += new System.EventHandler(this.numSignal_ValueChanged);
+            // 
+            // lblInterval
+            // 
+            this.lblInterval.AutoSize = true;
+            this.lblInterval.Location = new System.Drawing.Point(10, 85);
+            this.lblInterval.Name = "lblInterval";
+            this.lblInterval.Size = new System.Drawing.Size(105, 17);
+            this.lblInterval.TabIndex = 5;
+            this.lblInterval.Text = "Min Interval (s):";
+            this.toolTip.SetToolTip(this.lblInterval, "Minimum seconds between captures — prevents double-recording a truck");
+            // 
+            // numInterval
+            // 
+            this.numInterval.Enabled = false;
+            this.numInterval.Increment = new decimal(new int[] {
+            30,
+            0,
+            0,
+            0});
+            this.numInterval.Location = new System.Drawing.Point(130, 82);
+            this.numInterval.Maximum = new decimal(new int[] {
+            3600,
+            0,
+            0,
+            0});
+            this.numInterval.Name = "numInterval";
+            this.numInterval.Size = new System.Drawing.Size(65, 23);
+            this.numInterval.TabIndex = 5;
+            this.toolTip.SetToolTip(this.numInterval, "Minimum seconds between captures — prevents double-recording a truck");
+            this.numInterval.ValueChanged += new System.EventHandler(this.numInterval_ValueChanged);
+            // 
+            // lblTolerance
+            // 
+            this.lblTolerance.AutoSize = true;
+            this.lblTolerance.Location = new System.Drawing.Point(10, 120);
+            this.lblTolerance.Name = "lblTolerance";
+            this.lblTolerance.Size = new System.Drawing.Size(101, 17);
+            this.lblTolerance.TabIndex = 6;
+            this.lblTolerance.Text = "Tolerance (lb):";
+            this.toolTip.SetToolTip(this.lblTolerance, "How much the weight can vary and still be considered stable");
+            // 
+            // numTolerance
+            // 
+            this.numTolerance.Enabled = false;
+            this.numTolerance.Increment = new decimal(new int[] {
+            10,
+            0,
+            0,
+            0});
+            this.numTolerance.Location = new System.Drawing.Point(129, 117);
+            this.numTolerance.Maximum = new decimal(new int[] {
+            10000,
+            0,
+            0,
+            0});
+            this.numTolerance.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numTolerance.Name = "numTolerance";
+            this.numTolerance.Size = new System.Drawing.Size(65, 23);
+            this.numTolerance.TabIndex = 6;
+            this.toolTip.SetToolTip(this.numTolerance, "How much the weight can vary and still be considered stable");
+            this.numTolerance.Value = new decimal(new int[] {
+            50,
+            0,
+            0,
+            0});
+            this.numTolerance.ValueChanged += new System.EventHandler(this.numTolerance_ValueChanged);
             // 
             // tabControl
             // 
@@ -409,6 +553,8 @@ namespace ScaleDisplay
             this.grpAutoWeigh.Controls.Add(this.chkAutoWeigh);
             this.grpAutoWeigh.Controls.Add(this.lblInterval);
             this.grpAutoWeigh.Controls.Add(this.numInterval);
+            this.grpAutoWeigh.Controls.Add(this.lblTolerance);
+            this.grpAutoWeigh.Controls.Add(this.numTolerance);
             this.grpAutoWeigh.Controls.Add(this.lblMinWeight);
             this.grpAutoWeigh.Controls.Add(this.numMinWeight);
             this.grpAutoWeigh.Controls.Add(this.lblStability);
@@ -417,44 +563,11 @@ namespace ScaleDisplay
             this.grpAutoWeigh.Controls.Add(this.numSignal);
             this.grpAutoWeigh.Location = new System.Drawing.Point(12, 74);
             this.grpAutoWeigh.Name = "grpAutoWeigh";
-            this.grpAutoWeigh.Size = new System.Drawing.Size(482, 193);
+            this.grpAutoWeigh.Size = new System.Drawing.Size(482, 226);
             this.grpAutoWeigh.TabIndex = 4;
             this.grpAutoWeigh.TabStop = false;
             this.grpAutoWeigh.Text = "Auto Weigh";
-            //
-            // grpUnits
-            //
-            this.grpUnits.Controls.Add(this.rdoImperial);
-            this.grpUnits.Controls.Add(this.rdoMetric);
-            this.grpUnits.Location = new System.Drawing.Point(12, 277);
-            this.grpUnits.Name = "grpUnits";
-            this.grpUnits.Size = new System.Drawing.Size(482, 55);
-            this.grpUnits.TabIndex = 5;
-            this.grpUnits.TabStop = false;
-            this.grpUnits.Text = "Units";
-            //
-            // rdoImperial
-            //
-            this.rdoImperial.AutoSize = true;
-            this.rdoImperial.Checked = true;
-            this.rdoImperial.Location = new System.Drawing.Point(10, 22);
-            this.rdoImperial.Name = "rdoImperial";
-            this.rdoImperial.Size = new System.Drawing.Size(110, 21);
-            this.rdoImperial.TabIndex = 0;
-            this.rdoImperial.TabStop = true;
-            this.rdoImperial.Text = "Imperial (lb)";
-            this.rdoImperial.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
-            //
-            // rdoMetric
-            //
-            this.rdoMetric.AutoSize = true;
-            this.rdoMetric.Location = new System.Drawing.Point(150, 22);
-            this.rdoMetric.Name = "rdoMetric";
-            this.rdoMetric.Size = new System.Drawing.Size(100, 21);
-            this.rdoMetric.TabIndex = 1;
-            this.rdoMetric.Text = "Metric (kg)";
-            this.rdoMetric.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
-            //
+            // 
             // chkAutoWeigh
             // 
             this.chkAutoWeigh.AutoSize = true;
@@ -498,94 +611,39 @@ namespace ScaleDisplay
             0});
             this.numMinWeight.ValueChanged += new System.EventHandler(this.numMinWeight_ValueChanged);
             // 
-            // lblStability
+            // grpUnits
             // 
-            this.lblStability.AutoSize = true;
-            this.lblStability.Location = new System.Drawing.Point(10, 83);
-            this.lblStability.Name = "lblStability";
-            this.lblStability.Size = new System.Drawing.Size(82, 17);
-            this.lblStability.TabIndex = 2;
-            this.lblStability.Text = "Stability (s):";
+            this.grpUnits.Controls.Add(this.rdoImperial);
+            this.grpUnits.Controls.Add(this.rdoMetric);
+            this.grpUnits.Location = new System.Drawing.Point(12, 310);
+            this.grpUnits.Name = "grpUnits";
+            this.grpUnits.Size = new System.Drawing.Size(482, 55);
+            this.grpUnits.TabIndex = 5;
+            this.grpUnits.TabStop = false;
+            this.grpUnits.Text = "Units";
             // 
-            // numStability
+            // rdoImperial
             // 
-            this.numStability.Enabled = false;
-            this.numStability.Location = new System.Drawing.Point(130, 80);
-            this.numStability.Maximum = new decimal(new int[] {
-            60,
-            0,
-            0,
-            0});
-            this.numStability.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.numStability.Name = "numStability";
-            this.numStability.Size = new System.Drawing.Size(52, 23);
-            this.numStability.TabIndex = 2;
-            this.numStability.Value = new decimal(new int[] {
-            15,
-            0,
-            0,
-            0});
-            this.numStability.ValueChanged += new System.EventHandler(this.numStability_ValueChanged);
+            this.rdoImperial.AutoSize = true;
+            this.rdoImperial.Checked = true;
+            this.rdoImperial.Location = new System.Drawing.Point(10, 22);
+            this.rdoImperial.Name = "rdoImperial";
+            this.rdoImperial.Size = new System.Drawing.Size(100, 21);
+            this.rdoImperial.TabIndex = 0;
+            this.rdoImperial.TabStop = true;
+            this.rdoImperial.Text = "Imperial (lb)";
+            this.rdoImperial.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
             // 
-            // lblSignal
+            // rdoMetric
             // 
-            this.lblSignal.AutoSize = true;
-            this.lblSignal.Location = new System.Drawing.Point(10, 116);
-            this.lblSignal.Name = "lblSignal";
-            this.lblSignal.Size = new System.Drawing.Size(72, 17);
-            this.lblSignal.TabIndex = 3;
-            this.lblSignal.Text = "Signal (s):";
+            this.rdoMetric.AutoSize = true;
+            this.rdoMetric.Location = new System.Drawing.Point(150, 22);
+            this.rdoMetric.Name = "rdoMetric";
+            this.rdoMetric.Size = new System.Drawing.Size(93, 21);
+            this.rdoMetric.TabIndex = 1;
+            this.rdoMetric.Text = "Metric (kg)";
+            this.rdoMetric.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
             // 
-            // numSignal
-            // 
-            this.numSignal.Enabled = false;
-            this.numSignal.Location = new System.Drawing.Point(130, 113);
-            this.numSignal.Maximum = new decimal(new int[] {
-            60,
-            0,
-            0,
-            0});
-            this.numSignal.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            0});
-            this.numSignal.Name = "numSignal";
-            this.numSignal.Size = new System.Drawing.Size(52, 23);
-            this.numSignal.TabIndex = 3;
-            this.numSignal.Value = new decimal(new int[] {
-            5,
-            0,
-            0,
-            0});
-            this.numSignal.ValueChanged += new System.EventHandler(this.numSignal_ValueChanged);
-            //
-            // lblInterval
-            //
-            this.lblInterval.AutoSize = true;
-            this.lblInterval.Location = new System.Drawing.Point(10, 149);
-            this.lblInterval.Name = "lblInterval";
-            this.lblInterval.Size = new System.Drawing.Size(100, 17);
-            this.lblInterval.TabIndex = 5;
-            this.lblInterval.Text = "Min Interval (s):";
-            //
-            // numInterval
-            //
-            this.numInterval.Enabled = false;
-            this.numInterval.Increment = new decimal(new int[] { 30, 0, 0, 0 });
-            this.numInterval.Location = new System.Drawing.Point(130, 146);
-            this.numInterval.Maximum = new decimal(new int[] { 3600, 0, 0, 0 });
-            this.numInterval.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
-            this.numInterval.Name = "numInterval";
-            this.numInterval.Size = new System.Drawing.Size(65, 23);
-            this.numInterval.TabIndex = 5;
-            this.numInterval.Value = new decimal(new int[] { 0, 0, 0, 0 });
-            this.numInterval.ValueChanged += new System.EventHandler(this.numInterval_ValueChanged);
-            //
             // tabReport
             // 
             this.tabReport.Controls.Add(this.label1);
@@ -679,12 +737,10 @@ namespace ScaleDisplay
             this.Name = "Form1";
             this.Text = "Scale Reader";
             this.TopMost = true;
-            this.toolTip.SetToolTip(this.lblStability,  "Seconds the weight must remain stable before a load is recorded");
-            this.toolTip.SetToolTip(this.numStability,  "Seconds the weight must remain stable before a load is recorded");
-            this.toolTip.SetToolTip(this.lblSignal,     "Seconds the output relay stays active after a load is captured");
-            this.toolTip.SetToolTip(this.numSignal,     "Seconds the output relay stays active after a load is captured");
-            this.toolTip.SetToolTip(this.lblInterval,   "Minimum seconds between captures — prevents double-recording a truck");
-            this.toolTip.SetToolTip(this.numInterval,   "Minimum seconds between captures — prevents double-recording a truck");
+            ((System.ComponentModel.ISupportInitialize)(this.numStability)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numSignal)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numInterval)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numTolerance)).EndInit();
             this.tabControl.ResumeLayout(false);
             this.tabWeight.ResumeLayout(false);
             this.tabWeight.PerformLayout();
@@ -694,14 +750,11 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).EndInit();
             this.tabSettings.ResumeLayout(false);
             this.tabSettings.PerformLayout();
-            this.grpUnits.ResumeLayout(false);
-            this.grpUnits.PerformLayout();
             this.grpAutoWeigh.ResumeLayout(false);
             this.grpAutoWeigh.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.numInterval)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numStability)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numSignal)).EndInit();
+            this.grpUnits.ResumeLayout(false);
+            this.grpUnits.PerformLayout();
             this.tabReport.ResumeLayout(false);
             this.tabReport.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).EndInit();
@@ -755,6 +808,8 @@ namespace ScaleDisplay
         private System.Windows.Forms.NumericUpDown   numSignal;
         private System.Windows.Forms.Label           lblInterval;
         private System.Windows.Forms.NumericUpDown   numInterval;
+        private System.Windows.Forms.Label           lblTolerance;
+        private System.Windows.Forms.NumericUpDown   numTolerance;
         private System.Windows.Forms.GroupBox        grpUnits;
         private System.Windows.Forms.RadioButton     rdoImperial;
         private System.Windows.Forms.RadioButton     rdoMetric;

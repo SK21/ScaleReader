@@ -89,41 +89,25 @@ void parseLine(String s)
 	  STATUS | C,I,O,M, or space     | s[10]
 	*/
 
-	if (s.length() > 10)
+	if (s.length() > 8)
 	{
 		char polarity = s[0];
 		String data = s.substring(1, 8);
 		char units = s[8];
-		char mode = s[9];
-		char status = s[10];
 
 		if ((polarity == ' ' || polarity == '-') &&
-			(units == 'L' || units == 'K') &&
-			(mode == 'G' || mode == 'N'))
+			(units == 'L' || units == 'K'))
 		{
 			float weight = data.toFloat();
 			if (polarity == '-') weight = -weight;
 
 			const char* unitStr = (units == 'L') ? "lb" : "kg";
-			const char* modeStr = (mode == 'G') ? "Gross" : "Net";
-			const char* statusStr;
-			switch (status)
-			{
-			case 'M': statusStr = "Motion";     break;
-			case 'O': statusStr = "Over/Under"; break;
-			case 'I': statusStr = "Invalid";    break;
-			case 'C': statusStr = "Check Mode"; break;
-			default:  statusStr = "Stable";     break;
-			}
 
-			// CSV: weight,units,mode,status
+			// CSV: weight,units  (LF only — do not use println which sends CR+LF)
 			Serial.print(weight, 1);
 			Serial.print(',');
 			Serial.print(unitStr);
-			Serial.print(',');
-			Serial.print(modeStr);
-			Serial.print(',');
-			Serial.println(statusStr);
+			Serial.print('\n');
 		}
 	}
 }

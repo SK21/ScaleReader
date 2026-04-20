@@ -5,12 +5,13 @@
     <UseWindowsForms>true</UseWindowsForms>
     <StartupObject>ScaleDisplay.Program</StartupObject>
     <PackageIcon>scales.png</PackageIcon>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <OutputPath>..\ScaleDisplayApp\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\ScaleDisplayApp\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <None Update="scales.png">

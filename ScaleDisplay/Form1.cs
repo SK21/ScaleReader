@@ -89,8 +89,10 @@ namespace ScaleDisplay
         private volatile bool _autoWeighEnabled;
         private volatile int _minWeightLbs = 10000;
         private volatile int _minIntervalSeconds = 0;
+        private volatile int _stabilityToleranceLbs = 50;
         private volatile string _manualUnits = "lb";
-        private DateTime _lastCaptureTime = DateTime.MinValue; // "lb" or "kg"; user-controlled
+        private DateTime _lastCaptureTime = DateTime.MinValue;
+        private float _stabilityRefWeightLb = 0f; // "lb" or "kg"; user-controlled
         private volatile int _stabilitySeconds = 15;
         private volatile int _signalDurationSeconds = 5;
 
@@ -222,6 +224,7 @@ namespace ScaleDisplay
             lblEmptyLabel.Text = "Truck (" + units + "):";
             lblNetLabel.Text = "Net (" + units + "):";
             lblMinWeight.Text = "Min Weight (" + units + "):";
+            lblTolerance.Text = "Tolerance (" + units + "):";
             dgvTodayWeights.Columns[3].HeaderText = "Weight (" + units + ")";
             dgvReport.Columns[3].HeaderText = "Weight (" + units + ")";
             SetGrossWeightDisplay(_grossWeightKg);
@@ -547,12 +550,11 @@ namespace ScaleDisplay
             {
                 string line = _port.ReadLine().Trim();
                 string[] parts = line.Split(',');
-                if (parts.Length != 4) return;
+                if (parts.Length < 2) return;
 
                 float.TryParse(parts[0], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out float weightVal);
 
-                string status = parts[3];
                 string scaleUnits = parts[1];     // what the indicator actually sent
                 string displayUnits = _manualUnits;
 
@@ -565,7 +567,7 @@ namespace ScaleDisplay
 
                 // State machine uses scale units to correctly convert to lb internally
                 if (_autoWeighEnabled)
-                    RunStateMachine(weightVal, scaleUnits, status);
+                    RunStateMachine(weightVal, scaleUnits);
 
                 Invoke(new Action(() =>
                 {
@@ -580,12 +582,12 @@ namespace ScaleDisplay
 
         // ── Auto-weigh state machine ─────────────────────────────────────
 
-        private void RunStateMachine(float weight, string units, string status)
+        private void RunStateMachine(float weight, string units)
         {
             int minWeight = _minWeightLbs;
             int stabilityNeeded = _stabilitySeconds;
+            float tolerance = _stabilityToleranceLbs;
 
-            // Compare against minimum using lbs regardless of scale units
             float weightLb = units == "kg" ? weight * 2.20462f : weight;
 
             switch (_state)
@@ -594,7 +596,10 @@ namespace ScaleDisplay
                     bool intervalElapsed = _minIntervalSeconds == 0 ||
                         (DateTime.Now - _lastCaptureTime).TotalSeconds >= _minIntervalSeconds;
                     if (weightLb >= minWeight && intervalElapsed)
+                    {
                         _state = ScaleState.Settling;
+                        _stabilityRefWeightLb = weightLb;
+                    }
                     break;
 
                 case ScaleState.Settling:
@@ -603,7 +608,7 @@ namespace ScaleDisplay
                         _state = ScaleState.Empty;
                         _stableStart = null;
                     }
-                    else if (status == "Stable")
+                    else if (Math.Abs(weightLb - _stabilityRefWeightLb) <= tolerance)
                     {
                         if (_stableStart == null)
                             _stableStart = DateTime.Now;
@@ -616,6 +621,7 @@ namespace ScaleDisplay
                     }
                     else
                     {
+                        _stabilityRefWeightLb = weightLb;
                         _stableStart = null;
                     }
                     break;
@@ -990,6 +996,7 @@ namespace ScaleDisplay
             numStability.Enabled = chkAutoWeigh.Checked;
             numSignal.Enabled = chkAutoWeigh.Checked;
             numInterval.Enabled = chkAutoWeigh.Checked;
+            numTolerance.Enabled = chkAutoWeigh.Checked;
 
             if (!chkAutoWeigh.Checked)
             {
@@ -1036,6 +1043,13 @@ namespace ScaleDisplay
             SaveAutoWeighSettings();
         }
 
+        private void numTolerance_ValueChanged(object sender, EventArgs e)
+        {
+            float displayVal = (float)numTolerance.Value;
+            _stabilityToleranceLbs = (int)Math.Round(_currentUnits == "kg" ? displayVal * 2.20462f : displayVal);
+            SaveAutoWeighSettings();
+        }
+
         private void SaveAutoWeighSettings()
         {
             if (!_settingsLoaded) return;
@@ -1043,13 +1057,14 @@ namespace ScaleDisplay
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(AutoWeighSettingsFile));
                 File.WriteAllText(AutoWeighSettingsFile, string.Format(
-                    CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5}",
+                    CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4},{5},{6}",
                     chkAutoWeigh.Checked ? 1 : 0,
                     numMinWeight.Value,
                     numStability.Value,
                     numSignal.Value,
                     _manualUnits,
-                    numInterval.Value));
+                    numInterval.Value,
+                    numTolerance.Value));
             }
             catch { }
         }
@@ -1079,6 +1094,8 @@ namespace ScaleDisplay
                 }
                 if (parts.Length >= 6 && decimal.TryParse(parts[5], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal interval))
                     numInterval.Value = Math.Max(numInterval.Minimum, Math.Min(numInterval.Maximum, interval));
+                if (parts.Length >= 7 && decimal.TryParse(parts[6], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal tol))
+                    numTolerance.Value = Math.Max(numTolerance.Minimum, Math.Min(numTolerance.Maximum, tol));
             }
             catch { }
         }
@@ -1292,7 +1309,7 @@ namespace ScaleDisplay
             ApplyUnits(_manualUnits);
             UpdateManualControls();
             // ApplyUnits guards against re-entry; set report header explicitly in case it was skipped
-            dgvReport.Columns[3].HeaderText       = "Weight (" + _manualUnits + ")";
+            dgvReport.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
             dgvTodayWeights.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
 
             try

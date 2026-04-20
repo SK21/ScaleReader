@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scale Reader — Hardware Integration Guide</title>
+<style>
+  body {
+    font-family: Segoe UI, Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 860px;
+    margin: 40px auto;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 16px; margin-top: 32px; border-bottom: 1px solid #ccc; padding-bottom: 4px; color: #2c2c2c; }
+  h3 { font-size: 14px; margin-top: 20px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+  }
+  th, td {
+    border: 1px solid #bbb;
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f0f0f0; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafafa; }
+  pre {
+    background: #f4f4f4;
+    border: 1px solid #ccc;
+    border-left: 4px solid #555;
+    padding: 12px 16px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  code {
+    background: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  .note {
+    background: #fff8e1;
+    border-left: 4px solid #f0a500;
+    padding: 8px 14px;
+    margin: 12px 0;
+  }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  @media print {
+    body { margin: 20px; }
+    pre { page-break-inside: avoid; }
+    h2  { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Scale Reader &mdash; Hardware Integration Guide</h1>
+
+<h2>Overview</h2>
+<p>
+  Scale Reader connects to a weight indicator (or microcontroller acting as one) via a
+  USB/serial connection. The PC reads weight data from the device and optionally sends a
+  relay control signal back when a load is captured.
+</p>
+
+<h2>Serial Port Settings</h2>
+<table>
+  <tr><th>Parameter</th><th>Value</th></tr>
+  <tr><td>Baud rate</td><td>115200</td></tr>
+  <tr><td>Data bits</td><td>8</td></tr>
+  <tr><td>Stop bits</td><td>1</td></tr>
+  <tr><td>Parity</td><td>None</td></tr>
+  <tr><td>Line ending</td><td>LF (<code>\n</code>) &mdash; CR+LF will not work</td></tr>
+</table>
+<p>Select the COM port in the app's <strong>Settings</strong> tab and click <strong>Connect</strong>.</p>
+
+<h2>Data the App Expects to Receive</h2>
+<p>
+  Each line must contain exactly <strong>2 comma-separated fields</strong> followed by a
+  newline (<code>\n</code>). Lines with fewer than 2 fields are silently ignored.
+</p>
+<pre>&lt;weight&gt;,&lt;units&gt;\n</pre>
+
+<h3>Fields</h3>
+<table>
+  <tr><th>#</th><th>Name</th><th>Type</th><th>Expected values</th><th>Notes</th></tr>
+  <tr>
+    <td>0</td><td>Weight</td><td>float</td><td>e.g. <code>1234.5</code></td>
+    <td>Decimal separator must be a period (<code>.</code>). No thousands separator.</td>
+  </tr>
+  <tr>
+    <td>1</td><td>Units</td><td>string</td><td><code>lb</code> or <code>kg</code></td>
+    <td>Tells the app how to interpret the weight value. The display unit can be overridden in the Settings tab independently.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Stability is handled internally.</strong> The app compares consecutive weight
+  readings against a configurable tolerance window. There is no need to send a stability
+  flag from the microcontroller.
+</div>
+
+<h3>Example Lines</h3>
+<pre>1250.0,lb
+34725.0,kg</pre>
+
+<h2>Auto-Weigh Behaviour</h2>
+<p>When <strong>Auto Weigh</strong> is enabled the app runs a state machine on every received line:</p>
+<pre>
+[Empty] --(weight &gt;= min AND interval elapsed)--&gt; [Settling]
+   ^                                                    |
+   | weight drops below min                             | weight drops below min
+   |                                                    v
+   +------------------------------------------------ [Captured]
+                                                        |
+                                status == "Stable" for stability seconds
+                                                        |
+                                                        v
+                                               Record load &amp; send RELAY:1
+</pre>
+
+<table>
+  <tr><th>Setting</th><th>Description</th></tr>
+  <tr><td>Min Weight</td><td>Weight threshold (in the chosen display unit) before a truck is watched</td></tr>
+  <tr><td>Stability (s)</td><td>Seconds the indicator must continuously report <code>Stable</code> before a capture is made</td></tr>
+  <tr><td>Signal (s)</td><td>How long <code>RELAY:1</code> stays active after a capture</td></tr>
+  <tr><td>Min Interval (s)</td><td>Lockout period after a capture before the next truck can be detected. Set to 0 to disable.</td></tr>
+</table>
+
+<h2>Data the App Sends Back</h2>
+<p>After a load is captured the app writes one of two ASCII commands to the serial port:</p>
+<table>
+  <tr><th>Command</th><th>When sent</th></tr>
+  <tr><td><code>RELAY:1\n</code></td><td>Immediately after a successful capture</td></tr>
+  <tr><td><code>RELAY:0\n</code></td><td>After the Signal timer expires</td></tr>
+</table>
+<p>
+  The microcontroller can use these to drive a relay, buzzer, indicator light, or any other
+  output that confirms a weighing has been recorded.
+</p>
+
+<h2>Microcontroller Example &mdash; Arduino / Nano / Uno</h2>
+<pre>
+#define RELAY_PIN 7
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(RELAY_PIN, OUTPUT);
+}
+
+void loop() {
+    // --- Send weight data ---
+    float weight = readScaleKg();    // replace with your ADC / HX711 read
+
+    Serial.print(weight, 1);         // field 0 - weight
+    Serial.print(",kg");             // field 1 - units
+    Serial.print("\n");              // LF only - do NOT use Serial.println()
+
+    // --- Handle relay commands from PC ---
+    if (Serial.available()) {
+        String cmd = Serial.readStringUntil('\n');
+        cmd.trim();
+        if      (cmd == "RELAY:1") digitalWrite(RELAY_PIN, HIGH);
+        else if (cmd == "RELAY:0") digitalWrite(RELAY_PIN, LOW);
+    }
+
+    delay(200);   // ~5 readings per second is sufficient
+}
+</pre>
+
+<h2>Microcontroller Example &mdash; ESP32</h2>
+<pre>
+#define RELAY_PIN 23
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(RELAY_PIN, OUTPUT);
+}
+
+void loop() {
+    float weight = readScaleKg();
+
+    Serial.printf("%.1f,kg\n", weight);
+
+    if (Serial.available()) {
+        String cmd = Serial.readStringUntil('\n');
+        cmd.trim();
+        if      (cmd == "RELAY:1") digitalWrite(RELAY_PIN, HIGH);
+        else if (cmd == "RELAY:0") digitalWrite(RELAY_PIN, LOW);
+    }
+
+    delay(200);
+}
+</pre>
+
+<h2>Tips</h2>
+<ul>
+  <li>
+    <strong>Send rate</strong> &mdash; 5&ndash;10 lines per second is plenty. The stability
+    timer is measured in whole seconds so faster rates do not improve accuracy.
+  </li>
+  <li>
+    <strong>Units field</strong> &mdash; The app stores all weights internally in kg
+    regardless of the units field. Send whatever unit your sensor produces and set the
+    matching field. The display unit in the app is configured separately in Settings and
+    does not affect what you send.
+  </li>
+  <li>
+    <strong>Line ending</strong> &mdash; Use <code>\n</code> (LF only).
+    Arduino's <code>Serial.println()</code> sends <code>\r\n</code> (CR+LF) which will
+    break parsing. Use <code>Serial.print("\n")</code> instead.
+  </li>
+  <li>
+    <strong>No relay needed</strong> &mdash; If you do not need the relay output, simply
+    ignore anything received on the serial port. The app will not error if
+    <code>RELAY</code> commands go unhandled.
+  </li>
+</ul>
+
+</body>
+</html>
