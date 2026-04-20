@@ -83,9 +83,12 @@ namespace ScaleDisplay
         private Dictionary<string, string> _reportNotesByLoad = new Dictionary<string, string>();
         private string _reportDisplayedLoad = null;
 
+        private bool _suppressMinWeightSave = false;
+
         // Cached for safe access from the DataReceived background thread
         private volatile bool _autoWeighEnabled;
         private volatile int _minWeightLbs = 10000;
+        private volatile string _manualUnits = "lb"; // "lb" or "kg"; user-controlled
         private volatile int _stabilitySeconds = 15;
         private volatile int _signalDurationSeconds = 5;
 
@@ -115,7 +118,7 @@ namespace ScaleDisplay
         {
             SetupGrid(dgvReport,
                 new[] { "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels" },
-                new[] { 40, 9, 20, 17, 14 });
+                new[] { 34, 9, 20, 23, 14 });
             RightAlignColumns(dgvReport, 3, 4);
 
             SetupGrid(dgvTodayWeights,
@@ -210,14 +213,27 @@ namespace ScaleDisplay
         // empty weight display without triggering a file save.
         private void ApplyUnits(string units)
         {
-            if (units == _lastDisplayUnits) return;
+            if (IsDisposed || units == _lastDisplayUnits) return;
             _lastDisplayUnits = units;
 
             lblGrossLabel.Text = "Gross (" + units + "):";
             lblEmptyLabel.Text = "Truck (" + units + "):";
             lblNetLabel.Text = "Net (" + units + "):";
+            lblMinWeight.Text = "Min Weight (" + units + "):";
+            dgvTodayWeights.Columns[3].HeaderText = "Weight (" + units + ")";
+            dgvReport.Columns[3].HeaderText = "Weight (" + units + ")";
             SetGrossWeightDisplay(_grossWeightKg);
             SetEmptyWeightDisplay(_emptyWeightKg);
+            SetMinWeightDisplay();
+        }
+
+        private void SetMinWeightDisplay()
+        {
+            _suppressMinWeightSave = true;
+            float displayVal = _currentUnits == "kg" ? _minWeightLbs / 2.20462f : _minWeightLbs;
+            decimal d = Math.Max(numMinWeight.Minimum, Math.Min(numMinWeight.Maximum, (decimal)Math.Round(displayVal)));
+            numMinWeight.Value = d;
+            _suppressMinWeightSave = false;
         }
 
         // Sets numEmptyWeight to the display-unit equivalent of the given kg value.
@@ -534,20 +550,25 @@ namespace ScaleDisplay
                 float.TryParse(parts[0], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out float weightVal);
 
-                string weightDisplay = weightVal.ToString("N0") + " " + parts[1];
                 string status = parts[3];
-                string units = parts[1];
+                string scaleUnits = parts[1];     // what the indicator actually sent
+                string displayUnits = _manualUnits;
 
-                _currentWeight = weightVal;
-                _currentUnits = units;
+                // Convert raw scale value to display units for UI and capture buttons
+                float displayWeight = (scaleUnits == "kg" && displayUnits == "lb") ? weightVal * 2.20462f
+                                    : (scaleUnits == "lb" && displayUnits == "kg") ? weightVal / 2.20462f
+                                    : weightVal;
 
+                _currentWeight = displayWeight;
+
+                // State machine uses scale units to correctly convert to lb internally
                 if (_autoWeighEnabled)
-                    RunStateMachine(weightVal, units, status);
+                    RunStateMachine(weightVal, scaleUnits, status);
 
                 Invoke(new Action(() =>
                 {
-                    ApplyUnits(units);
-                    lblWeightValue.Text = weightDisplay;
+                    ApplyUnits(displayUnits);
+                    lblWeightValue.Text = displayWeight.ToString("N0") + " " + displayUnits;
                     UpdateNet();
                     UpdateBushels();
                 }));
@@ -770,7 +791,15 @@ namespace ScaleDisplay
 
             PrintDialog dlg = new PrintDialog { Document = pd };
             if (dlg.ShowDialog() == DialogResult.OK)
-                pd.Print();
+            {
+                try { pd.Print(); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        "Print failed. If printing to a file, close it in any viewer and try again.\n\n" + ex.Message,
+                        "Print Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
         }
 
         private struct ReceiptData
@@ -828,12 +857,13 @@ namespace ScaleDisplay
             y += 10;
 
             // Weights
-            Row("Gross:", FormatKg(r.GrossKg) + " kg", bigFont, rightAlign: true);
-            Row("Truck:", FormatKg(r.TruckKg) + " kg", bigFont, rightAlign: true);
+            string weightUnit = _manualUnits;
+            Row("Gross:", FormatKg(r.GrossKg) + " " + weightUnit, bigFont, rightAlign: true);
+            Row("Truck:", FormatKg(r.TruckKg) + " " + weightUnit, bigFont, rightAlign: true);
             y += 4;
             g.DrawLine(divPen, x, y, x + pageW, y);
             y += 6;
-            Row("Net:", FormatKg(r.NetKg) + " kg", bigFont, rightAlign: true);
+            Row("Net:", FormatKg(r.NetKg) + " " + weightUnit, bigFont, rightAlign: true);
             y += 6;
 
             g.DrawLine(divPen, x, y, x + pageW, y);
@@ -857,10 +887,13 @@ namespace ScaleDisplay
             e.HasMorePages = false;
         }
 
-        private static string FormatKg(float kg) =>
-            kg.ToString("N0", CultureInfo.CurrentCulture);
+        private float KgToDisplay(float kg) =>
+            _manualUnits == "lb" ? kg * 2.20462f : kg;
 
-        private static string FormatKgStr(string raw) =>
+        private string FormatKg(float kg) =>
+            KgToDisplay(kg).ToString("N0", CultureInfo.CurrentCulture);
+
+        private string FormatKgStr(string raw) =>
             float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)
                 ? FormatKg(v) : raw;
 
@@ -940,7 +973,7 @@ namespace ScaleDisplay
             bool autoWeigh = chkAutoWeigh.Checked;
             // Capture buttons need a live scale reading; manual entry and record work without one
             btnCaptureGross.Enabled = portOpen && !autoWeigh;
-            btnCaptureTruck.Enabled = portOpen;
+            btnCaptureTruck.Enabled = portOpen && !autoWeigh;
             numGrossWeight.Enabled = !autoWeigh;
             btnManualWeigh.Enabled = !autoWeigh;
         }
@@ -961,9 +994,21 @@ namespace ScaleDisplay
             SaveAutoWeighSettings();
         }
 
+        private void rdoUnits_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!rdoImperial.Checked && !rdoMetric.Checked) return;
+            _manualUnits = rdoMetric.Checked ? "kg" : "lb";
+            _currentUnits = _manualUnits;
+            ApplyUnits(_manualUnits);
+            RefreshTodayWeights();
+            SaveAutoWeighSettings();
+        }
+
         private void numMinWeight_ValueChanged(object sender, EventArgs e)
         {
-            _minWeightLbs = (int)numMinWeight.Value;
+            if (_suppressMinWeightSave) return;
+            float displayVal = (float)numMinWeight.Value;
+            _minWeightLbs = (int)Math.Round(_currentUnits == "kg" ? displayVal * 2.20462f : displayVal);
             SaveAutoWeighSettings();
         }
 
@@ -986,11 +1031,12 @@ namespace ScaleDisplay
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(AutoWeighSettingsFile));
                 File.WriteAllText(AutoWeighSettingsFile, string.Format(
-                    CultureInfo.InvariantCulture, "{0},{1},{2},{3}",
+                    CultureInfo.InvariantCulture, "{0},{1},{2},{3},{4}",
                     chkAutoWeigh.Checked ? 1 : 0,
                     numMinWeight.Value,
                     numStability.Value,
-                    numSignal.Value));
+                    numSignal.Value,
+                    _manualUnits));
             }
             catch { }
         }
@@ -1011,6 +1057,13 @@ namespace ScaleDisplay
                     numStability.Value = Math.Max(numStability.Minimum, Math.Min(numStability.Maximum, stab));
                 if (decimal.TryParse(parts[3], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sig))
                     numSignal.Value = Math.Max(numSignal.Minimum, Math.Min(numSignal.Maximum, sig));
+                if (parts.Length >= 5 && (parts[4] == "lb" || parts[4] == "kg"))
+                {
+                    _manualUnits = parts[4];
+                    _currentUnits = _manualUnits;
+                    rdoMetric.Checked = _manualUnits == "kg";
+                    rdoImperial.Checked = _manualUnits == "lb";
+                }
             }
             catch { }
         }
@@ -1120,10 +1173,6 @@ namespace ScaleDisplay
                 if (!row.IsNewRow)
                 {
                     string load = row.Cells[1].Value?.ToString() ?? "";
-                    string rawWt = row.Cells[3].Value?.ToString() ?? "";
-                    string weight = float.TryParse(rawWt, NumberStyles.Float,
-                        CultureInfo.InvariantCulture, out float wf)
-                        ? FormatKg(wf) : rawWt;
                     string note = _reportNotesByLoad.TryGetValue(load, out string n) ? n : "";
 
                     string dt = row.Cells[0].Value?.ToString() ?? "";
@@ -1131,7 +1180,7 @@ namespace ScaleDisplay
                         dt,
                         load,
                         row.Cells[2].Value?.ToString() ?? "",
-                        weight,
+                        row.Cells[3].Value?.ToString() ?? "",
                         row.Cells[4].Value?.ToString() ?? "",
                         note
                     });
@@ -1145,7 +1194,15 @@ namespace ScaleDisplay
 
             PrintDialog dlg = new PrintDialog { Document = pd };
             if (dlg.ShowDialog() == DialogResult.OK)
-                pd.Print();
+            {
+                try { pd.Print(); }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        "Print failed. If printing to a file, close it in any viewer and try again.\n\n" + ex.Message,
+                        "Print Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
         }
 
         private void PrintPage(object sender, PrintPageEventArgs e)
@@ -1164,7 +1221,7 @@ namespace ScaleDisplay
                 y += titleFont.GetHeight(e.Graphics) + 8;
 
                 DrawPrintRow(e.Graphics, headerFont, x, y, e.MarginBounds.Right,
-                    "Date / Time", "Load #", "Crop", "Weight (kg)", "Bushels", "Note");
+                    "Date / Time", "Load #", "Crop", "Weight (" + _manualUnits + ")", "Bushels", "Note");
                 y += lineH;
                 e.Graphics.DrawLine(Pens.Black, x, y, e.MarginBounds.Right, y);
                 y += 4;
@@ -1197,11 +1254,11 @@ namespace ScaleDisplay
             g.DrawString(dateTime, font, Brushes.Black, x, y);
             g.DrawString(load, font, Brushes.Black, x + 130, y);
             g.DrawString(crop, font, Brushes.Black, x + 183, y);
-            g.DrawString(weight, font, Brushes.Black, new RectangleF(x + 258, y, 70, rowH), right);
-            g.DrawString(bushels, font, Brushes.Black, new RectangleF(x + 333, y, 60, rowH), right);
+            g.DrawString(weight, font, Brushes.Black, new RectangleF(x + 258, y, 85, rowH), right);
+            g.DrawString(bushels, font, Brushes.Black, new RectangleF(x + 348, y, 60, rowH), right);
             if (!string.IsNullOrEmpty(note))
                 g.DrawString(note, font, Brushes.Black,
-                    new RectangleF(x + 398, y, pageRight - x - 398, rowH));
+                    new RectangleF(x + 413, y, pageRight - x - 413, rowH));
 
             right.Dispose();
         }
@@ -1216,6 +1273,12 @@ namespace ScaleDisplay
             LoadCropSettings();
             LoadAutoWeighSettings();
             _settingsLoaded = true;
+            _lastDisplayUnits = "";   // force ApplyUnits to run regardless of default
+            ApplyUnits(_manualUnits);
+            UpdateManualControls();
+            // ApplyUnits guards against re-entry; set report header explicitly in case it was skipped
+            dgvReport.Columns[3].HeaderText       = "Weight (" + _manualUnits + ")";
+            dgvTodayWeights.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
 
             try
             {

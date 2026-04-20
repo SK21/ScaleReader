@@ -41,6 +41,9 @@ namespace ScaleDisplay
             this.btnDeleteWeight = new System.Windows.Forms.Button();
             this.btnPrintReceipt = new System.Windows.Forms.Button();
             this.tabSettings = new System.Windows.Forms.TabPage();
+            this.grpUnits = new System.Windows.Forms.GroupBox();
+            this.rdoImperial = new System.Windows.Forms.RadioButton();
+            this.rdoMetric = new System.Windows.Forms.RadioButton();
             this.lblPort = new System.Windows.Forms.Label();
             this.cmbPort = new System.Windows.Forms.ComboBox();
             this.btnRefresh = new System.Windows.Forms.Button();
@@ -68,6 +71,7 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).BeginInit();
             this.tabSettings.SuspendLayout();
+            this.grpUnits.SuspendLayout();
             this.grpAutoWeigh.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
@@ -353,6 +357,7 @@ namespace ScaleDisplay
             this.tabSettings.Controls.Add(this.btnRefresh);
             this.tabSettings.Controls.Add(this.btnConnect);
             this.tabSettings.Controls.Add(this.grpAutoWeigh);
+            this.tabSettings.Controls.Add(this.grpUnits);
             this.tabSettings.Location = new System.Drawing.Point(4, 25);
             this.tabSettings.Name = "tabSettings";
             this.tabSettings.Padding = new System.Windows.Forms.Padding(5);
@@ -410,7 +415,40 @@ namespace ScaleDisplay
             this.grpAutoWeigh.TabIndex = 4;
             this.grpAutoWeigh.TabStop = false;
             this.grpAutoWeigh.Text = "Auto Weigh";
-            // 
+            //
+            // grpUnits
+            //
+            this.grpUnits.Controls.Add(this.rdoImperial);
+            this.grpUnits.Controls.Add(this.rdoMetric);
+            this.grpUnits.Location = new System.Drawing.Point(12, 244);
+            this.grpUnits.Name = "grpUnits";
+            this.grpUnits.Size = new System.Drawing.Size(482, 55);
+            this.grpUnits.TabIndex = 5;
+            this.grpUnits.TabStop = false;
+            this.grpUnits.Text = "Units";
+            //
+            // rdoImperial
+            //
+            this.rdoImperial.AutoSize = true;
+            this.rdoImperial.Checked = true;
+            this.rdoImperial.Location = new System.Drawing.Point(10, 22);
+            this.rdoImperial.Name = "rdoImperial";
+            this.rdoImperial.Size = new System.Drawing.Size(110, 21);
+            this.rdoImperial.TabIndex = 0;
+            this.rdoImperial.TabStop = true;
+            this.rdoImperial.Text = "Imperial (lb)";
+            this.rdoImperial.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
+            //
+            // rdoMetric
+            //
+            this.rdoMetric.AutoSize = true;
+            this.rdoMetric.Location = new System.Drawing.Point(150, 22);
+            this.rdoMetric.Name = "rdoMetric";
+            this.rdoMetric.Size = new System.Drawing.Size(100, 21);
+            this.rdoMetric.TabIndex = 1;
+            this.rdoMetric.Text = "Metric (kg)";
+            this.rdoMetric.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
+            //
             // chkAutoWeigh
             // 
             this.chkAutoWeigh.AutoSize = true;
@@ -622,6 +660,8 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).EndInit();
             this.tabSettings.ResumeLayout(false);
             this.tabSettings.PerformLayout();
+            this.grpUnits.ResumeLayout(false);
+            this.grpUnits.PerformLayout();
             this.grpAutoWeigh.ResumeLayout(false);
             this.grpAutoWeigh.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).EndInit();
@@ -676,6 +716,9 @@ namespace ScaleDisplay
         private System.Windows.Forms.NumericUpDown   numStability;
         private System.Windows.Forms.Label           lblSignal;
         private System.Windows.Forms.NumericUpDown   numSignal;
+        private System.Windows.Forms.GroupBox        grpUnits;
+        private System.Windows.Forms.RadioButton     rdoImperial;
+        private System.Windows.Forms.RadioButton     rdoMetric;
 
         // Report tab
         private System.Windows.Forms.Label           lblDate;
