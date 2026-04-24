@@ -572,12 +572,13 @@ namespace ScaleDisplay
             this.grpAutoWeigh.Controls.Add(this.numStability);
             this.grpAutoWeigh.Controls.Add(this.lblSignal);
             this.grpAutoWeigh.Controls.Add(this.numSignal);
-            this.grpAutoWeigh.Location = new System.Drawing.Point(14, 190);
+            this.grpAutoWeigh.Location = new System.Drawing.Point(14, 186);
             this.grpAutoWeigh.Name = "grpAutoWeigh";
             this.grpAutoWeigh.Size = new System.Drawing.Size(482, 226);
             this.grpAutoWeigh.TabIndex = 4;
             this.grpAutoWeigh.TabStop = false;
             this.grpAutoWeigh.Text = "Auto Weigh";
+            this.grpAutoWeigh.Paint += new System.Windows.Forms.PaintEventHandler(this.gbData_Paint);
             // 
             // chkAutoWeigh
             // 
@@ -632,6 +633,7 @@ namespace ScaleDisplay
             this.grpUnits.TabIndex = 5;
             this.grpUnits.TabStop = false;
             this.grpUnits.Text = "Units";
+            this.grpUnits.Paint += new System.Windows.Forms.PaintEventHandler(this.gbData_Paint);
             // 
             // rdoImperial
             // 
@@ -748,6 +750,7 @@ namespace ScaleDisplay
             this.gbData.TabIndex = 100;
             this.gbData.TabStop = false;
             this.gbData.Text = "Data Source";
+            this.gbData.Paint += new System.Windows.Forms.PaintEventHandler(this.gbData_Paint);
             // 
             // Form1
             // 

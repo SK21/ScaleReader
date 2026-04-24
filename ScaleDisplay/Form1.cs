@@ -572,30 +572,58 @@ namespace ScaleDisplay
 
                 float.TryParse(parts[0], NumberStyles.Float,
                     CultureInfo.InvariantCulture, out float weightVal);
+                string scaleUnits = parts[1];
+                if (scaleUnits != "lb" && scaleUnits != "kg") return;
 
-                string scaleUnits = parts[1];     // what the indicator actually sent
-                string displayUnits = _manualUnits;
-
-                // Convert raw scale value to display units for UI and capture buttons
-                float displayWeight = (scaleUnits == "kg" && displayUnits == "lb") ? weightVal * 2.20462f
-                                    : (scaleUnits == "lb" && displayUnits == "kg") ? weightVal / 2.20462f
-                                    : weightVal;
-
-                _currentWeight = displayWeight;
-
-                // State machine uses scale units to correctly convert to lb internally
-                if (_autoWeighEnabled)
-                    RunStateMachine(weightVal, scaleUnits);
-
-                Invoke(new Action(() =>
-                {
-                    ApplyUnits(displayUnits);
-                    lblWeightValue.Text = displayWeight.ToString("N0") + " " + displayUnits;
-                    UpdateNet();
-                    UpdateBushels();
-                }));
+                ApplyWeightReading(weightVal, scaleUnits);
             }
             catch { }
+        }
+
+        // Parses the weight field from a WT sentence (shared by serial and UDP paths).
+        // Returns false if the sentence is malformed or the units suffix is unrecognised.
+        private static bool ParseWtSentence(string line, out float weightVal, out string scaleUnits)
+        {
+            weightVal = 0f;
+            scaleUnits = "";
+            string[] parts = line.Split(',');
+            if (parts.Length < 4 || parts[0] != "WT") return false;
+
+            string field = parts[3].Trim();
+            if (field.EndsWith("lb", StringComparison.OrdinalIgnoreCase))
+                scaleUnits = "lb";
+            else if (field.EndsWith("kg", StringComparison.OrdinalIgnoreCase))
+                scaleUnits = "kg";
+            else return false;
+
+            field = field.Substring(0, field.Length - 2);
+            return float.TryParse(field, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out weightVal);
+        }
+
+        // Converts, updates state machine, and posts the UI update.
+        // extraUiAction (optional) runs inside the Invoke before the standard weight labels.
+        private void ApplyWeightReading(float weightVal, string scaleUnits,
+                                        Action extraUiAction = null)
+        {
+            string displayUnits = _manualUnits;
+            float displayWeight = (scaleUnits == "kg" && displayUnits == "lb") ? weightVal * 2.20462f
+                                : (scaleUnits == "lb" && displayUnits == "kg") ? weightVal / 2.20462f
+                                : weightVal;
+
+            _currentWeight = displayWeight;
+
+            if (_autoWeighEnabled)
+                RunStateMachine(weightVal, scaleUnits);
+
+            Invoke(new Action(() =>
+            {
+                extraUiAction?.Invoke();
+                ApplyUnits(displayUnits);
+                lblWeightValue.Text = displayWeight.ToString("N0") + " " + displayUnits;
+                UpdateNet();
+                UpdateBushels();
+            }));
         }
 
         // ── Auto-weigh state machine ─────────────────────────────────────
@@ -1447,60 +1475,22 @@ namespace ScaleDisplay
 
         private void ProcessUdpSentence(string line)
         {
-            // Ignore UDP when a serial port is the active connection
             if (_connectionMode == ConnectionMode.Serial) return;
-
-            // Expected format: WT,<volts>V,<mA>mA,<weight><units>
-            // e.g. WT,1.234V,5.678mA,12345.6lb
-            string[] parts = line.Split(',');
-            if (parts.Length < 4 || parts[0] != "WT") return;
-
-            string weightField = parts[3].Trim();
-
-            string scaleUnits;
-            if (weightField.EndsWith("lb", StringComparison.OrdinalIgnoreCase))
-            {
-                scaleUnits = "lb";
-                weightField = weightField.Substring(0, weightField.Length - 2);
-            }
-            else if (weightField.EndsWith("kg", StringComparison.OrdinalIgnoreCase))
-            {
-                scaleUnits = "kg";
-                weightField = weightField.Substring(0, weightField.Length - 2);
-            }
-            else return;
-
-            if (!float.TryParse(weightField, NumberStyles.Float,
-                CultureInfo.InvariantCulture, out float weightVal))
-                return;
-
-            string displayUnits = _manualUnits;
-            float displayWeight = (scaleUnits == "kg" && displayUnits == "lb") ? weightVal * 2.20462f
-                                : (scaleUnits == "lb" && displayUnits == "kg") ? weightVal / 2.20462f
-                                : weightVal;
-
-            _currentWeight = displayWeight;
+            if (!ParseWtSentence(line, out float weightVal, out string scaleUnits)) return;
 
             bool justActivated = _connectionMode != ConnectionMode.Udp;
             _connectionMode = ConnectionMode.Udp;
             if (justActivated)
                 _teensyEP = new IPEndPoint(_udpEP.Address, _udpEP.Port);
 
-            if (_autoWeighEnabled)
-                RunStateMachine(weightVal, scaleUnits);
-
-            Invoke(new Action(() =>
+            Action extra = justActivated ? () =>
             {
-                if (justActivated)
-                {
-                    lblConnectionStatus.Text = "UDP active";
-                    UpdateManualControls();
-                }
-                ApplyUnits(displayUnits);
-                lblWeightValue.Text = displayWeight.ToString("N0") + " " + displayUnits;
-                UpdateNet();
-                UpdateBushels();
-            }));
+                lblConnectionStatus.Text = "UDP active";
+                UpdateManualControls();
+            }
+            : (Action)null;
+
+            ApplyWeightReading(weightVal, scaleUnits, extra);
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
@@ -1508,6 +1498,52 @@ namespace ScaleDisplay
             _udpRunning = false;
             try { _udp?.Close(); } catch { }
 
+        }
+
+        public void DrawGroupBox(GroupBox box, Graphics g, Color BackColor, Color textColor, Color borderColor, float borderWidth = 1)
+        {
+            // useage:
+            // point the Groupbox paint event to this sub:
+            // private void groupBox1_Paint(object sender, PaintEventArgs e)
+            //{
+            //    GroupBox box = sender as GroupBox;
+            // mf.Tls.DrawGroupBox(box, e.Graphics, this.BackColor, Color.Black, Color.Red, 3); // Red border with thickness 3
+            //}
+            if (box != null)
+            {
+                using (Brush textBrush = new SolidBrush(textColor))
+                using (Pen borderPen = new Pen(borderColor, borderWidth))
+                {
+                    SizeF strSize = g.MeasureString(box.Text, box.Font);
+                    Rectangle rect = new Rectangle(box.ClientRectangle.X,
+                                                   box.ClientRectangle.Y + (int)(strSize.Height / 2),
+                                                   box.ClientRectangle.Width - 1,
+                                                   box.ClientRectangle.Height - (int)(strSize.Height / 2) - 1);
+
+                    // Clear text and border
+                    g.Clear(BackColor);
+
+                    // Draw text
+                    g.DrawString(box.Text, box.Font, textBrush, box.Padding.Left, 0);
+
+                    // Drawing Border
+                    // Left
+                    g.DrawLine(borderPen, rect.Location, new Point(rect.X, rect.Y + rect.Height));
+                    // Right
+                    g.DrawLine(borderPen, new Point(rect.X + rect.Width, rect.Y), new Point(rect.X + rect.Width, rect.Y + rect.Height));
+                    // Bottom
+                    g.DrawLine(borderPen, new Point(rect.X, rect.Y + rect.Height), new Point(rect.X + rect.Width, rect.Y + rect.Height));
+                    // Top1
+                    g.DrawLine(borderPen, new Point(rect.X, rect.Y), new Point(rect.X + box.Padding.Left, rect.Y));
+                    // Top2
+                    g.DrawLine(borderPen, new Point(rect.X + box.Padding.Left + (int)(strSize.Width), rect.Y), new Point(rect.X + rect.Width, rect.Y));
+                }
+            }
+        }
+
+        private void gbData_Paint(object sender, PaintEventArgs e)
+        {
+            DrawGroupBox((GroupBox)sender, e.Graphics, this.BackColor, Color.Black, Color.Blue);
         }
     }
 }

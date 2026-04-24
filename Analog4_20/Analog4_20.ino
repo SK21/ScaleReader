@@ -80,13 +80,14 @@ EthernetUDP udp;
 // TEST MODE  — set false for real hardware
 // -------------------------------
 bool TEST_MODE = true;
-float testWeight = 50162.0f;
+float testWeight = 48167;
 float testStep = 500.0f;   // lb per update
 
 uint32_t LoopTime = 200;
 uint32_t LastTime;
 uint32_t LastBlink;
 bool BlinkState;
+String serialCmd = "";
 
 void setup() {
 	Serial.begin(115200);
@@ -106,15 +107,26 @@ void setup() {
 	// -------------------------------
 	// Ethernet
 	// -------------------------------
-	Ethernet.begin(mac, ip);
+	// Pass 0 as IP to avoid blocking in begin(); set static IP separately.
+	// This matches the RCteensy pattern and prevents hanging with no cable.
+	Ethernet.begin(mac, 0);
+	Ethernet.setLocalIP(ip);
 	udp.begin(UDP_PORT);
 
 	pinMode(RELAY_PIN, OUTPUT);
 	digitalWrite(RELAY_PIN, LOW);
 
-	Serial.println("Ethernet started.");
-	Serial.print("IP: ");
-	Serial.println(Ethernet.localIP());
+	delay(500);
+	if (Ethernet.linkStatus() == LinkON)
+	{
+		Serial.println("Ethernet connected.");
+		Serial.print("IP: ");
+		Serial.println(Ethernet.localIP());
+	}
+	else
+	{
+		Serial.println("Ethernet not connected.");
+	}
 
 	Serial.print("Test Mode: ");
 	if (TEST_MODE)
@@ -180,23 +192,46 @@ void loop()
 		// -------------------------------
 		// Send UDP packet to PC
 		// -------------------------------
-		udp.beginPacket(pc, UDP_PORT);
-		udp.write(sentence);
-		udp.endPacket();
+		if (Ethernet.linkStatus() == LinkON)
+		{
+			udp.beginPacket(pc, UDP_PORT);
+			udp.write(sentence);
+			udp.endPacket();
+		}
 
-		// Debug to USB
-		Serial.print(sentence);
+		// USB serial — same weight,units format as ScaleReader so the app needs no format detection
+		Serial.printf("%.1f,lb\n", weight);
 	}
 
-	// Check for relay commands from PC (RELAY:1 / RELAY:0)
-	int packetSize = udp.parsePacket();
-	if (packetSize > 0)
+	// Relay commands from PC via UDP (RELAY:1 / RELAY:0)
+	if (Ethernet.linkStatus() == LinkON)
 	{
-		char cmd[16] = {};
-		int len = udp.read(cmd, sizeof(cmd) - 1);
-		cmd[len] = '\0';
-		if (strcmp(cmd, "RELAY:1") == 0)      digitalWrite(RELAY_PIN, HIGH);
-		else if (strcmp(cmd, "RELAY:0") == 0) digitalWrite(RELAY_PIN, LOW);
+		int packetSize = udp.parsePacket();
+		if (packetSize > 0)
+		{
+			char cmd[16] = {};
+			int len = udp.read(cmd, sizeof(cmd) - 1);
+			cmd[len] = '\0';
+			if (strcmp(cmd, "RELAY:1") == 0)      digitalWrite(RELAY_PIN, HIGH);
+			else if (strcmp(cmd, "RELAY:0") == 0) digitalWrite(RELAY_PIN, LOW);
+		}
+	}
+
+	// Relay commands from PC via USB serial (same RELAY:1 / RELAY:0 protocol)
+	while (Serial.available())
+	{
+		char c = (char)Serial.read();
+		if (c == '\n')
+		{
+			serialCmd.trim();
+			if (serialCmd == "RELAY:1")      digitalWrite(RELAY_PIN, HIGH);
+			else if (serialCmd == "RELAY:0") digitalWrite(RELAY_PIN, LOW);
+			serialCmd = "";
+		}
+		else
+		{
+			serialCmd += c;
+		}
 	}
 
 	if (millis() - LastBlink > 1000)
