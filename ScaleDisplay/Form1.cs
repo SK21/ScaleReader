@@ -5,12 +5,25 @@ using System.Drawing.Printing;
 using System.Globalization;
 using System.IO;
 using System.IO.Ports;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace ScaleDisplay
 {
     public partial class Form1 : Form
     {
+        // UDP receiver
+        private UdpClient _udp;
+        private IPEndPoint _udpEP = new IPEndPoint(IPAddress.Any, 5005);
+        private IPEndPoint _teensyEP = null;   // set on first received UDP packet
+        private Thread _udpThread;
+        private volatile bool _udpRunning = false;
+        private enum ConnectionMode { None, Serial, Udp }
+        private volatile ConnectionMode _connectionMode = ConnectionMode.None;
+
         private const string AppVersion = "1.0.0";
 
         private static readonly string PositionFile = Path.Combine(
@@ -104,6 +117,7 @@ namespace ScaleDisplay
         public Form1()
         {
             InitializeComponent();
+            StartUdpReceiver();
             Text = "Scale Reader [Version " + AppVersion + "]";
             SetupGrids();
             InitializeCropCombo();
@@ -511,6 +525,8 @@ namespace ScaleDisplay
                 lblBushelsValue.Text = "---";
                 lblNetValue.Text = "---";
                 ResetStateMachine();
+                _connectionMode = ConnectionMode.None;
+                lblConnectionStatus.Text = "No connection";
                 return;
             }
 
@@ -522,6 +538,8 @@ namespace ScaleDisplay
             try
             {
                 _port.Open();
+                _connectionMode = ConnectionMode.Serial;
+                lblConnectionStatus.Text = "Serial: " + cmbPort.SelectedItem;
                 btnConnect.Text = "Disconnect";
                 cmbPort.Enabled = false;
                 btnRefresh.Enabled = false;
@@ -915,6 +933,15 @@ namespace ScaleDisplay
                 try { _port.WriteLine(on ? "RELAY:1" : "RELAY:0"); }
                 catch { }
             }
+            else if (_connectionMode == ConnectionMode.Udp && _teensyEP != null)
+            {
+                try
+                {
+                    byte[] cmd = Encoding.ASCII.GetBytes(on ? "RELAY:1" : "RELAY:0");
+                    _udp.Send(cmd, cmd.Length, _teensyEP);
+                }
+                catch { }
+            }
         }
 
         private void ResetStateMachine()
@@ -980,11 +1007,11 @@ namespace ScaleDisplay
 
         private void UpdateManualControls()
         {
-            bool portOpen = _port != null && _port.IsOpen;
+            bool hasLiveWeight = (_port != null && _port.IsOpen) || _connectionMode == ConnectionMode.Udp;
             bool autoWeigh = chkAutoWeigh.Checked;
             // Capture buttons need a live scale reading; manual entry and record work without one
-            btnCaptureGross.Enabled = portOpen && !autoWeigh;
-            btnCaptureTruck.Enabled = portOpen && !autoWeigh;
+            btnCaptureGross.Enabled = hasLiveWeight && !autoWeigh;
+            btnCaptureTruck.Enabled = hasLiveWeight && !autoWeigh;
             numGrossWeight.Enabled = !autoWeigh;
             btnManualWeigh.Enabled = !autoWeigh;
         }
@@ -1378,6 +1405,109 @@ namespace ScaleDisplay
             }
             catch { }
             base.OnFormClosing(e);
+        }
+
+        private void StartUdpReceiver()
+        {
+            try
+            {
+                _udp = new UdpClient(5005);   // must match Teensy UDP port
+                _udpRunning = true;
+
+                _udpThread = new Thread(UdpListenLoop);
+                _udpThread.IsBackground = true;
+                _udpThread.Start();
+
+                Console.WriteLine("UDP listener started on port 5005");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not start UDP listener: " + ex.Message);
+            }
+        }
+
+        private void UdpListenLoop()
+        {
+            while (_udpRunning)
+            {
+                try
+                {
+                    byte[] data = _udp.Receive(ref _udpEP);
+                    string line = Encoding.ASCII.GetString(data).Trim();
+
+                    // Example: WT,1.234V,5.678mA,12345.6lb
+                    ProcessUdpSentence(line);
+                }
+                catch
+                {
+                    // ignore socket errors during shutdown
+                }
+            }
+        }
+
+        private void ProcessUdpSentence(string line)
+        {
+            // Ignore UDP when a serial port is the active connection
+            if (_connectionMode == ConnectionMode.Serial) return;
+
+            // Expected format: WT,<volts>V,<mA>mA,<weight><units>
+            // e.g. WT,1.234V,5.678mA,12345.6lb
+            string[] parts = line.Split(',');
+            if (parts.Length < 4 || parts[0] != "WT") return;
+
+            string weightField = parts[3].Trim();
+
+            string scaleUnits;
+            if (weightField.EndsWith("lb", StringComparison.OrdinalIgnoreCase))
+            {
+                scaleUnits = "lb";
+                weightField = weightField.Substring(0, weightField.Length - 2);
+            }
+            else if (weightField.EndsWith("kg", StringComparison.OrdinalIgnoreCase))
+            {
+                scaleUnits = "kg";
+                weightField = weightField.Substring(0, weightField.Length - 2);
+            }
+            else return;
+
+            if (!float.TryParse(weightField, NumberStyles.Float,
+                CultureInfo.InvariantCulture, out float weightVal))
+                return;
+
+            string displayUnits = _manualUnits;
+            float displayWeight = (scaleUnits == "kg" && displayUnits == "lb") ? weightVal * 2.20462f
+                                : (scaleUnits == "lb" && displayUnits == "kg") ? weightVal / 2.20462f
+                                : weightVal;
+
+            _currentWeight = displayWeight;
+
+            bool justActivated = _connectionMode != ConnectionMode.Udp;
+            _connectionMode = ConnectionMode.Udp;
+            if (justActivated)
+                _teensyEP = new IPEndPoint(_udpEP.Address, _udpEP.Port);
+
+            if (_autoWeighEnabled)
+                RunStateMachine(weightVal, scaleUnits);
+
+            Invoke(new Action(() =>
+            {
+                if (justActivated)
+                {
+                    lblConnectionStatus.Text = "UDP active";
+                    UpdateManualControls();
+                }
+                ApplyUnits(displayUnits);
+                lblWeightValue.Text = displayWeight.ToString("N0") + " " + displayUnits;
+                UpdateNet();
+                UpdateBushels();
+            }));
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _udpRunning = false;
+            try { _udp?.Close(); } catch { }
+
         }
     }
 }

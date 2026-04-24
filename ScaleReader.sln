@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ScaleDisplay", "ScaleDispla
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NanoTestSend", "D:\Sync\Documents\Arduino\NanoTestSend\NanoTestSend\NanoTestSend.vcxproj", "{D5C3E6BD-9FF3-01DC-7E25-73603A85985B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Analog4_20", "Analog4_20\Analog4_20.vcxproj", "{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -47,6 +49,18 @@ Global
 		{D5C3E6BD-9FF3-01DC-7E25-73603A85985B}.Release|ARM64.ActiveCfg = Release|ARM64
 		{D5C3E6BD-9FF3-01DC-7E25-73603A85985B}.Release|ARM64.Build.0 = Release|ARM64
 		{D5C3E6BD-9FF3-01DC-7E25-73603A85985B}.Release|ARM64.Deploy.0 = Release|ARM64
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Debug|ARM.ActiveCfg = Debug|ARM
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Debug|ARM.Build.0 = Debug|ARM
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Debug|ARM.Deploy.0 = Debug|ARM
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Debug|ARM64.Build.0 = Debug|ARM64
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Release|ARM.ActiveCfg = Release|ARM
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Release|ARM.Build.0 = Release|ARM
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Release|ARM.Deploy.0 = Release|ARM
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Release|ARM64.ActiveCfg = Release|ARM64
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Release|ARM64.Build.0 = Release|ARM64
+		{455A86AE-A62D-0BE8-4F45-78B6F7A42E94}.Release|ARM64.Deploy.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

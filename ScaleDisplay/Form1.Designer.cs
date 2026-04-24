@@ -27,6 +27,7 @@ namespace ScaleDisplay
             this.numInterval = new System.Windows.Forms.NumericUpDown();
             this.lblTolerance = new System.Windows.Forms.Label();
             this.numTolerance = new System.Windows.Forms.NumericUpDown();
+            this.lblConnectionStatus = new System.Windows.Forms.Label();
             this.tabControl = new System.Windows.Forms.TabControl();
             this.tabWeight = new System.Windows.Forms.TabPage();
             this.lblWeightValue = new System.Windows.Forms.Label();
@@ -70,6 +71,8 @@ namespace ScaleDisplay
             this.btnLoadReport = new System.Windows.Forms.Button();
             this.dgvReport = new System.Windows.Forms.DataGridView();
             this.btnPrint = new System.Windows.Forms.Button();
+            this.backgroundWorker1 = new System.ComponentModel.BackgroundWorker();
+            this.gbData = new System.Windows.Forms.GroupBox();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -86,6 +89,7 @@ namespace ScaleDisplay
             this.grpUnits.SuspendLayout();
             this.tabReport.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).BeginInit();
+            this.gbData.SuspendLayout();
             this.SuspendLayout();
             // 
             // lblStability
@@ -227,6 +231,16 @@ namespace ScaleDisplay
             0,
             0});
             this.numTolerance.ValueChanged += new System.EventHandler(this.numTolerance_ValueChanged);
+            // 
+            // lblConnectionStatus
+            // 
+            this.lblConnectionStatus.AutoSize = true;
+            this.lblConnectionStatus.ForeColor = System.Drawing.SystemColors.GrayText;
+            this.lblConnectionStatus.Location = new System.Drawing.Point(45, 76);
+            this.lblConnectionStatus.Name = "lblConnectionStatus";
+            this.lblConnectionStatus.Size = new System.Drawing.Size(99, 17);
+            this.lblConnectionStatus.TabIndex = 99;
+            this.lblConnectionStatus.Text = "No connection";
             // 
             // tabControl
             // 
@@ -500,10 +514,7 @@ namespace ScaleDisplay
             // 
             // tabSettings
             // 
-            this.tabSettings.Controls.Add(this.lblPort);
-            this.tabSettings.Controls.Add(this.cmbPort);
-            this.tabSettings.Controls.Add(this.btnRefresh);
-            this.tabSettings.Controls.Add(this.btnConnect);
+            this.tabSettings.Controls.Add(this.gbData);
             this.tabSettings.Controls.Add(this.grpAutoWeigh);
             this.tabSettings.Controls.Add(this.grpUnits);
             this.tabSettings.Location = new System.Drawing.Point(4, 25);
@@ -516,7 +527,7 @@ namespace ScaleDisplay
             // lblPort
             // 
             this.lblPort.AutoSize = true;
-            this.lblPort.Location = new System.Drawing.Point(27, 36);
+            this.lblPort.Location = new System.Drawing.Point(45, 36);
             this.lblPort.Name = "lblPort";
             this.lblPort.Size = new System.Drawing.Size(73, 17);
             this.lblPort.TabIndex = 0;
@@ -525,14 +536,14 @@ namespace ScaleDisplay
             // cmbPort
             // 
             this.cmbPort.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbPort.Location = new System.Drawing.Point(101, 32);
+            this.cmbPort.Location = new System.Drawing.Point(119, 32);
             this.cmbPort.Name = "cmbPort";
             this.cmbPort.Size = new System.Drawing.Size(85, 24);
             this.cmbPort.TabIndex = 1;
             // 
             // btnRefresh
             // 
-            this.btnRefresh.Location = new System.Drawing.Point(192, 31);
+            this.btnRefresh.Location = new System.Drawing.Point(210, 31);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Size = new System.Drawing.Size(76, 26);
             this.btnRefresh.TabIndex = 2;
@@ -541,7 +552,7 @@ namespace ScaleDisplay
             // 
             // btnConnect
             // 
-            this.btnConnect.Location = new System.Drawing.Point(273, 31);
+            this.btnConnect.Location = new System.Drawing.Point(291, 31);
             this.btnConnect.Name = "btnConnect";
             this.btnConnect.Size = new System.Drawing.Size(95, 26);
             this.btnConnect.TabIndex = 3;
@@ -561,7 +572,7 @@ namespace ScaleDisplay
             this.grpAutoWeigh.Controls.Add(this.numStability);
             this.grpAutoWeigh.Controls.Add(this.lblSignal);
             this.grpAutoWeigh.Controls.Add(this.numSignal);
-            this.grpAutoWeigh.Location = new System.Drawing.Point(12, 74);
+            this.grpAutoWeigh.Location = new System.Drawing.Point(14, 190);
             this.grpAutoWeigh.Name = "grpAutoWeigh";
             this.grpAutoWeigh.Size = new System.Drawing.Size(482, 226);
             this.grpAutoWeigh.TabIndex = 4;
@@ -615,9 +626,9 @@ namespace ScaleDisplay
             // 
             this.grpUnits.Controls.Add(this.rdoImperial);
             this.grpUnits.Controls.Add(this.rdoMetric);
-            this.grpUnits.Location = new System.Drawing.Point(12, 310);
+            this.grpUnits.Location = new System.Drawing.Point(14, 448);
             this.grpUnits.Name = "grpUnits";
-            this.grpUnits.Size = new System.Drawing.Size(482, 55);
+            this.grpUnits.Size = new System.Drawing.Size(482, 66);
             this.grpUnits.TabIndex = 5;
             this.grpUnits.TabStop = false;
             this.grpUnits.Text = "Units";
@@ -724,6 +735,20 @@ namespace ScaleDisplay
             this.btnPrint.Text = "Print...";
             this.btnPrint.Click += new System.EventHandler(this.btnPrint_Click);
             // 
+            // gbData
+            // 
+            this.gbData.Controls.Add(this.btnConnect);
+            this.gbData.Controls.Add(this.lblConnectionStatus);
+            this.gbData.Controls.Add(this.btnRefresh);
+            this.gbData.Controls.Add(this.lblPort);
+            this.gbData.Controls.Add(this.cmbPort);
+            this.gbData.Location = new System.Drawing.Point(14, 41);
+            this.gbData.Name = "gbData";
+            this.gbData.Size = new System.Drawing.Size(482, 110);
+            this.gbData.TabIndex = 100;
+            this.gbData.TabStop = false;
+            this.gbData.Text = "Data Source";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -737,6 +762,7 @@ namespace ScaleDisplay
             this.Name = "Form1";
             this.Text = "Scale Reader";
             this.TopMost = true;
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).EndInit();
@@ -749,7 +775,6 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).EndInit();
             this.tabSettings.ResumeLayout(false);
-            this.tabSettings.PerformLayout();
             this.grpAutoWeigh.ResumeLayout(false);
             this.grpAutoWeigh.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).EndInit();
@@ -758,6 +783,8 @@ namespace ScaleDisplay
             this.tabReport.ResumeLayout(false);
             this.tabReport.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).EndInit();
+            this.gbData.ResumeLayout(false);
+            this.gbData.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -794,6 +821,7 @@ namespace ScaleDisplay
         private System.Windows.Forms.Button          btnPrintReceipt;
 
         // Settings tab
+        private System.Windows.Forms.Label           lblConnectionStatus;
         private System.Windows.Forms.Label           lblPort;
         private System.Windows.Forms.ComboBox        cmbPort;
         private System.Windows.Forms.Button          btnRefresh;
@@ -822,5 +850,7 @@ namespace ScaleDisplay
         private System.Windows.Forms.Button          btnPrint;
         private Label label1;
         private TextBox textBox1;
+        private GroupBox gbData;
+        private System.ComponentModel.BackgroundWorker backgroundWorker1;
     }
 }
