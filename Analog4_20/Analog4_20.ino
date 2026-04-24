@@ -71,8 +71,7 @@ const uint16_t UDP_PORT = 5005;      // PC app listens here
 
 // Ethernet
 byte mac[6] = { 0x04, 0xE9, 0xE5, 0x12, 0x34, 0x56 };
-IPAddress ip(192, 168, 10, 53);       // Teensy IP
-IPAddress pc(192, 168, 10, 255);      // PC app IP
+IPAddress ip(192, 168, 1, 53);            // Teensy static IP (fallback if DHCP fails)
 
 EthernetUDP udp;
 
@@ -80,7 +79,7 @@ EthernetUDP udp;
 // TEST MODE  — set false for real hardware
 // -------------------------------
 bool TEST_MODE = true;
-float testWeight = 48167;
+float testWeight = 49523;
 float testStep = 500.0f;   // lb per update
 
 uint32_t LoopTime = 200;
@@ -107,25 +106,48 @@ void setup() {
 	// -------------------------------
 	// Ethernet
 	// -------------------------------
-	// Pass 0 as IP to avoid blocking in begin(); set static IP separately.
-	// This matches the RCteensy pattern and prevents hanging with no cable.
-	Ethernet.begin(mac, 0);
-	Ethernet.setLocalIP(ip);
-	udp.begin(UDP_PORT);
-
 	pinMode(RELAY_PIN, OUTPUT);
 	digitalWrite(RELAY_PIN, LOW);
 
+	// Try DHCP first (gets an IP on whatever subnet the PC is on).
+	// begin(mac) blocks up to ~60 s waiting for a lease, so we start
+	// with no IP, wait briefly for a link, then attempt DHCP only if
+	// a cable is present — keeping the timeout to a few seconds.
+	Ethernet.begin(mac, 0);
 	delay(500);
+
 	if (Ethernet.linkStatus() == LinkON)
 	{
-		Serial.println("Ethernet connected.");
+		Serial.print("Link detected, trying DHCP");
+		bool dhcp = false;
+		uint32_t dhcpStart = millis();
+		while (!dhcp && millis() - dhcpStart < 5000)
+		{
+			dhcp = (Ethernet.begin(mac) != 0);
+			if (!dhcp) { Serial.print("."); delay(500); }
+		}
+		Serial.println();
+
+		if (dhcp)
+		{
+			Serial.println("DHCP OK.");
+		}
+		else
+		{
+			// Fall back to static IP
+			Ethernet.begin(mac, 0);
+			Ethernet.setLocalIP(ip);
+			Serial.println("DHCP failed, using static IP.");
+		}
+
+		udp.begin(UDP_PORT);
 		Serial.print("IP: ");
 		Serial.println(Ethernet.localIP());
 	}
 	else
 	{
-		Serial.println("Ethernet not connected.");
+		Serial.println("No Ethernet link — serial only.");
+		udp.begin(UDP_PORT);   // bind anyway so socket is ready if link comes up
 	}
 
 	Serial.print("Test Mode: ");
@@ -190,11 +212,13 @@ void loop()
 			volts, current_mA, weight);
 
 		// -------------------------------
-		// Send UDP packet to PC
+		// Send UDP packet to subnet broadcast
 		// -------------------------------
 		if (Ethernet.linkStatus() == LinkON)
 		{
-			udp.beginPacket(pc, UDP_PORT);
+			IPAddress bcast = Ethernet.localIP();
+			bcast[3] = 255;
+			udp.beginPacket(bcast, UDP_PORT);
 			udp.write(sentence);
 			udp.endPacket();
 		}
@@ -203,7 +227,7 @@ void loop()
 		Serial.printf("%.1f,lb\n", weight);
 	}
 
-	// Relay commands from PC via UDP (RELAY:1 / RELAY:0)
+	// Incoming UDP from PC: relay commands 
 	if (Ethernet.linkStatus() == LinkON)
 	{
 		int packetSize = udp.parsePacket();
@@ -212,8 +236,10 @@ void loop()
 			char cmd[16] = {};
 			int len = udp.read(cmd, sizeof(cmd) - 1);
 			cmd[len] = '\0';
-			if (strcmp(cmd, "RELAY:1") == 0)      digitalWrite(RELAY_PIN, HIGH);
-			else if (strcmp(cmd, "RELAY:0") == 0) digitalWrite(RELAY_PIN, LOW);
+			if (strcmp(cmd, "RELAY:1") == 0)
+				digitalWrite(RELAY_PIN, HIGH);
+			else if (strcmp(cmd, "RELAY:0") == 0)
+				digitalWrite(RELAY_PIN, LOW);
 		}
 	}
 

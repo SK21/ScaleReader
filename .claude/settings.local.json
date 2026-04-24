@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(pdftotext \"D:/Sync/2026/Scale/UMC2000.pdf\" -)",
+      "Bash(pdftotext \"D:/Sync/2026/Scale/UMC2000.pdf\" \"/tmp/umc2000.txt\")",
+      "Read(//tmp/**)",
+      "Bash(pdfimages \"D:/Sync/2026/Scale/UMC2000.pdf\" - png)"
     ]
   }
 }

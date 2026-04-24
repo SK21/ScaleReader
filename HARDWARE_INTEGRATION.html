@@ -199,6 +199,126 @@ void loop() {
 }
 </pre>
 
+<h2>Analog 4&ndash;20 mA Connection (Teensy 4.1 / Ethernet)</h2>
+<p>
+  The <strong>Analog4_20</strong> sketch runs on a Teensy&nbsp;4.1 and reads the isolated
+  4&ndash;20&nbsp;mA analog output of a weight indicator (e.g. UMC&nbsp;2000-54) via an
+  ADS1115 ADC. Weight data is delivered to the app over <strong>UDP/Ethernet</strong>.
+  A USB serial connection is also supported as a fallback using the same
+  <code>&lt;weight&gt;,lb\n</code> format as a standard serial device.
+</p>
+
+<h3>Hardware Wiring</h3>
+
+<p><strong>UMC 2000-54 Indicator &rarr; PCB</strong></p>
+<table>
+  <tr><th>Indicator pin</th><th>Connects to</th><th>Notes</th></tr>
+  <tr>
+    <td>Pin&nbsp;7 (+)</td>
+    <td>PCB &ldquo;Analog 4&ndash;20&rdquo; input</td>
+    <td>4&ndash;20&nbsp;mA output</td>
+  </tr>
+  <tr>
+    <td>Pin&nbsp;8 (&minus;)</td>
+    <td>PCB GND</td>
+    <td>Isolated return &mdash; PCB GND <em>must</em> connect here</td>
+  </tr>
+</table>
+
+<p><strong>PCB (ADS1115 analog board)</strong></p>
+<table>
+  <tr><th>Component</th><th>Detail</th></tr>
+  <tr><td>ADS1115 input channel</td><td>AIN2</td></tr>
+  <tr><td>R17 shunt</td><td>250&thinsp;&Omega; &mdash; converts 4&ndash;20&nbsp;mA to 1&ndash;5&nbsp;V</td></tr>
+  <tr><td>BAV99 diodes</td><td>Protect ADS1115 inputs against overvoltage</td></tr>
+</table>
+
+<p><strong>Teensy 4.1</strong></p>
+<table>
+  <tr><th>Teensy pin</th><th>Connects to</th><th>Notes</th></tr>
+  <tr><td>Pin&nbsp;18 (SDA)</td><td>PCA9306 &rarr; ADS1115 SDA</td><td>Level-shifted I&sup2;C</td></tr>
+  <tr><td>Pin&nbsp;19 (SCL)</td><td>PCA9306 &rarr; ADS1115 SCL</td><td>Level-shifted I&sup2;C</td></tr>
+  <tr><td>Pin&nbsp;5</td><td>Relay / indicator output</td><td>HIGH on capture, LOW after signal timer</td></tr>
+  <tr><td>GND</td><td>PCB GND</td><td>Common ground with indicator return</td></tr>
+  <tr><td>RJ-45 Ethernet</td><td>Network switch or direct to PC</td><td>UDP communication with the app</td></tr>
+</table>
+
+<h3>Indicator Analog Output Calibration</h3>
+<p>
+  The UMC&nbsp;2000-54 has three trim pots on its A/D board (ZERO, GROSS SPAN, FINE SPAN).
+  Calibrate with a multimeter measuring current between Pin&nbsp;7 (+) and Pin&nbsp;8 (&minus;):
+</p>
+<ol>
+  <li>
+    <strong>Empty scale</strong> &mdash; ensure the platform is empty. Adjust
+    <strong>ZERO</strong> until the output reads <strong>4.00&nbsp;mA</strong>.
+  </li>
+  <li>
+    <strong>Full-capacity load</strong> &mdash; apply a known full-scale load (or as close
+    as possible). Adjust <strong>GROSS SPAN</strong> until the output is near
+    <strong>20.00&nbsp;mA</strong>, then use <strong>FINE SPAN</strong> to dial it in
+    precisely.
+  </li>
+</ol>
+<p>
+  After calibration: <strong>4.00&nbsp;mA = 0&nbsp;lb</strong>,
+  <strong>20.00&nbsp;mA = 60,000&nbsp;lb</strong>.
+  Adjust <code>FS_WEIGHT</code> in the sketch to match a different scale capacity.
+</p>
+
+<h3>Network Setup</h3>
+<p>
+  The Teensy attempts DHCP on startup (5-second timeout) and falls back to a static IP
+  (<code>192.168.10.53</code>) if no lease is obtained. DHCP is recommended as it places
+  the Teensy on the same subnet as the PC automatically.
+</p>
+<p>
+  Weight packets are broadcast to the subnet (<code>x.x.x.255:5005</code>) so the PC does
+  not need to know the Teensy&rsquo;s IP. Relay commands from the PC are likewise broadcast
+  to <code>255.255.255.255:5005</code>. No manual IP configuration is required in the app.
+</p>
+
+<h3>UDP Sentence Format</h3>
+<p>The Teensy sends one UDP packet every 200&nbsp;ms:</p>
+<pre>WT,&lt;volts&gt;V,&lt;mA&gt;mA,&lt;weight&gt;lb\n</pre>
+<table>
+  <tr><th>Field</th><th>Example</th><th>Description</th></tr>
+  <tr><td><code>WT</code></td><td><code>WT</code></td><td>Sentence identifier</td></tr>
+  <tr><td>Volts</td><td><code>1.234V</code></td><td>Voltage across shunt resistor</td></tr>
+  <tr><td>Current</td><td><code>8.950mA</code></td><td>Loop current</td></tr>
+  <tr><td>Weight</td><td><code>18750.0lb</code></td><td>Calculated weight; units suffix is <code>lb</code> or <code>kg</code></td></tr>
+</table>
+
+<h3>UDP Relay Commands</h3>
+<p>
+  The app sends relay commands to the Teensy over UDP (same port 5005) using the same
+  protocol as serial:
+</p>
+<table>
+  <tr><th>Command</th><th>When sent</th></tr>
+  <tr><td><code>RELAY:1</code></td><td>Immediately after a successful capture</td></tr>
+  <tr><td><code>RELAY:0</code></td><td>After the Signal timer expires</td></tr>
+</table>
+
+<h3>App Behaviour</h3>
+<ul>
+  <li>
+    The app shows <strong>UDP active</strong> in the Settings tab as soon as the first
+    valid packet arrives. No manual action is required.
+  </li>
+  <li>
+    If packets stop arriving for more than <strong>2 seconds</strong> the app resets to
+    &ldquo;No connection&rdquo; and clears the weight display.
+  </li>
+  <li>
+    While a serial port is connected, UDP data is ignored (serial takes priority).
+  </li>
+  <li>
+    <strong>TEST_MODE</strong> in the sketch generates a synthetic weight reading.
+    Set <code>TEST_MODE = false</code> for real hardware.
+  </li>
+</ul>
+
 <h2>Tips</h2>
 <ul>
   <li>

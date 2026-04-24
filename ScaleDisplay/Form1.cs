@@ -18,11 +18,12 @@ namespace ScaleDisplay
         // UDP receiver
         private UdpClient _udp;
         private IPEndPoint _udpEP = new IPEndPoint(IPAddress.Any, 5005);
-        private IPEndPoint _teensyEP = null;   // set on first received UDP packet
         private Thread _udpThread;
         private volatile bool _udpRunning = false;
         private enum ConnectionMode { None, Serial, Udp }
         private volatile ConnectionMode _connectionMode = ConnectionMode.None;
+        private DateTime _lastUdpReceived = DateTime.MinValue;
+        private System.Windows.Forms.Timer _udpWatchdog;
 
         private const string AppVersion = "1.0.0";
 
@@ -961,12 +962,12 @@ namespace ScaleDisplay
                 try { _port.WriteLine(on ? "RELAY:1" : "RELAY:0"); }
                 catch { }
             }
-            else if (_connectionMode == ConnectionMode.Udp && _teensyEP != null)
+            else if (_connectionMode == ConnectionMode.Udp)
             {
                 try
                 {
                     byte[] cmd = Encoding.ASCII.GetBytes(on ? "RELAY:1" : "RELAY:0");
-                    _udp.Send(cmd, cmd.Length, _teensyEP);
+                    _udp.Send(cmd, cmd.Length, new IPEndPoint(IPAddress.Broadcast, 5005));
                 }
                 catch { }
             }
@@ -1439,19 +1440,35 @@ namespace ScaleDisplay
         {
             try
             {
-                _udp = new UdpClient(5005);   // must match Teensy UDP port
+                _udp = new UdpClient(5005);
+                _udp.EnableBroadcast = true;
                 _udpRunning = true;
 
                 _udpThread = new Thread(UdpListenLoop);
                 _udpThread.IsBackground = true;
                 _udpThread.Start();
 
-                Console.WriteLine("UDP listener started on port 5005");
+                _udpWatchdog = new System.Windows.Forms.Timer { Interval = 1000 };
+                _udpWatchdog.Tick += OnUdpWatchdogTick;
+                _udpWatchdog.Start();
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Could not start UDP listener: " + ex.Message);
             }
+        }
+
+        private void OnUdpWatchdogTick(object sender, EventArgs e)
+        {
+            if (_connectionMode != ConnectionMode.Udp) return;
+            if ((DateTime.Now - _lastUdpReceived).TotalSeconds < 2) return;
+
+            _connectionMode = ConnectionMode.None;
+            lblConnectionStatus.Text = "No connection";
+            lblWeightValue.Text = "---";
+            lblWeightValue.BackColor = SystemColors.Control;
+            ResetStateMachine();
+            UpdateManualControls();
         }
 
         private void UdpListenLoop()
@@ -1480,8 +1497,7 @@ namespace ScaleDisplay
 
             bool justActivated = _connectionMode != ConnectionMode.Udp;
             _connectionMode = ConnectionMode.Udp;
-            if (justActivated)
-                _teensyEP = new IPEndPoint(_udpEP.Address, _udpEP.Port);
+            _lastUdpReceived = DateTime.Now;
 
             Action extra = justActivated ? () =>
             {
@@ -1495,9 +1511,10 @@ namespace ScaleDisplay
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            _udpWatchdog?.Stop();
+            _udpWatchdog?.Dispose();
             _udpRunning = false;
             try { _udp?.Close(); } catch { }
-
         }
 
         public void DrawGroupBox(GroupBox box, Graphics g, Color BackColor, Color textColor, Color borderColor, float borderWidth = 1)
