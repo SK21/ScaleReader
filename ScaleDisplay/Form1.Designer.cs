@@ -833,7 +833,7 @@ namespace ScaleDisplay
             // ckLP7515
             // 
             this.ckLP7515.AutoSize = true;
-            this.ckLP7515.Location = new System.Drawing.Point(11, 66);
+            this.ckLP7515.Location = new System.Drawing.Point(15, 66);
             this.ckLP7515.Name = "ckLP7515";
             this.ckLP7515.Size = new System.Drawing.Size(76, 21);
             this.ckLP7515.TabIndex = 103;
