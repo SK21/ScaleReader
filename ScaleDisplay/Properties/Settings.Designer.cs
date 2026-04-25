@@ -34,5 +34,29 @@ namespace ScaleDisplay.Properties {
                 this["SerialPort"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("9600")]
+        public int Baud {
+            get {
+                return ((int)(this["Baud"]));
+            }
+            set {
+                this["Baud"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool LP7515 {
+            get {
+                return ((bool)(this["LP7515"]));
+            }
+            set {
+                this["LP7515"] = value;
+            }
+        }
     }
 }

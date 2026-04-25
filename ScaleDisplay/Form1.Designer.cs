@@ -76,6 +76,9 @@ namespace ScaleDisplay
             this.btnLoadReport = new System.Windows.Forms.Button();
             this.dgvReport = new System.Windows.Forms.DataGridView();
             this.btnPrint = new System.Windows.Forms.Button();
+            this.label2 = new System.Windows.Forms.Label();
+            this.cmbBaud = new System.Windows.Forms.ComboBox();
+            this.ckLP7515 = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -239,7 +242,7 @@ namespace ScaleDisplay
             // 
             this.lblConnectionStatus.AutoSize = true;
             this.lblConnectionStatus.ForeColor = System.Drawing.SystemColors.GrayText;
-            this.lblConnectionStatus.Location = new System.Drawing.Point(45, 73);
+            this.lblConnectionStatus.Location = new System.Drawing.Point(11, 27);
             this.lblConnectionStatus.Name = "lblConnectionStatus";
             this.lblConnectionStatus.Size = new System.Drawing.Size(99, 17);
             this.lblConnectionStatus.TabIndex = 99;
@@ -529,6 +532,9 @@ namespace ScaleDisplay
             // 
             // gbData
             // 
+            this.gbData.Controls.Add(this.ckLP7515);
+            this.gbData.Controls.Add(this.label2);
+            this.gbData.Controls.Add(this.cmbBaud);
             this.gbData.Controls.Add(this.btnConnect);
             this.gbData.Controls.Add(this.lblConnectionStatus);
             this.gbData.Controls.Add(this.btnRefresh);
@@ -548,18 +554,18 @@ namespace ScaleDisplay
             // 
             // btnConnect
             // 
-            this.btnConnect.Location = new System.Drawing.Point(291, 31);
+            this.btnConnect.Location = new System.Drawing.Point(337, 64);
             this.btnConnect.Name = "btnConnect";
-            this.btnConnect.Size = new System.Drawing.Size(95, 26);
+            this.btnConnect.Size = new System.Drawing.Size(120, 26);
             this.btnConnect.TabIndex = 3;
             this.btnConnect.Text = "Connect";
             this.btnConnect.Click += new System.EventHandler(this.btnConnect_Click);
             // 
             // btnRefresh
             // 
-            this.btnRefresh.Location = new System.Drawing.Point(210, 31);
+            this.btnRefresh.Location = new System.Drawing.Point(337, 22);
             this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(76, 26);
+            this.btnRefresh.Size = new System.Drawing.Size(120, 26);
             this.btnRefresh.TabIndex = 2;
             this.btnRefresh.Text = "Refresh";
             this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
@@ -567,7 +573,7 @@ namespace ScaleDisplay
             // lblPort
             // 
             this.lblPort.AutoSize = true;
-            this.lblPort.Location = new System.Drawing.Point(45, 36);
+            this.lblPort.Location = new System.Drawing.Point(142, 27);
             this.lblPort.Name = "lblPort";
             this.lblPort.Size = new System.Drawing.Size(73, 17);
             this.lblPort.TabIndex = 0;
@@ -576,7 +582,7 @@ namespace ScaleDisplay
             // cmbPort
             // 
             this.cmbPort.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbPort.Location = new System.Drawing.Point(119, 32);
+            this.cmbPort.Location = new System.Drawing.Point(216, 23);
             this.cmbPort.Name = "cmbPort";
             this.cmbPort.Size = new System.Drawing.Size(85, 24);
             this.cmbPort.TabIndex = 1;
@@ -798,6 +804,43 @@ namespace ScaleDisplay
             this.btnPrint.Text = "Print...";
             this.btnPrint.Click += new System.EventHandler(this.btnPrint_Click);
             // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(142, 68);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(45, 17);
+            this.label2.TabIndex = 101;
+            this.label2.Text = "Baud:";
+            // 
+            // cmbBaud
+            // 
+            this.cmbBaud.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbBaud.Items.AddRange(new object[] {
+            "1200",
+            "2400",
+            "4800",
+            "9600",
+            "19200",
+            "38400",
+            "57600",
+            "115200"});
+            this.cmbBaud.Location = new System.Drawing.Point(216, 64);
+            this.cmbBaud.Name = "cmbBaud";
+            this.cmbBaud.Size = new System.Drawing.Size(85, 24);
+            this.cmbBaud.TabIndex = 102;
+            // 
+            // ckLP7515
+            // 
+            this.ckLP7515.AutoSize = true;
+            this.ckLP7515.Location = new System.Drawing.Point(11, 66);
+            this.ckLP7515.Name = "ckLP7515";
+            this.ckLP7515.Size = new System.Drawing.Size(76, 21);
+            this.ckLP7515.TabIndex = 103;
+            this.ckLP7515.Text = "LP7515";
+            this.ckLP7515.UseVisualStyleBackColor = true;
+            this.ckLP7515.CheckedChanged += new System.EventHandler(this.ckLP7515_CheckedChanged);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -905,5 +948,8 @@ namespace ScaleDisplay
         private Label label1;
         private TextBox textBox1;
         private GroupBox gbData;
+        private CheckBox ckLP7515;
+        private Label label2;
+        private ComboBox cmbBaud;
     }
 }

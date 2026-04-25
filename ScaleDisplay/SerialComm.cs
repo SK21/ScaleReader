@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO.Ports;
 using System.Text;
@@ -33,21 +32,6 @@ namespace ScaleDisplay
         public bool IsOpen
         { get { return Sport.IsOpen; } }
 
-        public string Log
-        {
-            get
-            {
-                lock (LogLock)
-                {
-                    return LogBuilder.ToString();
-                }
-            }
-        }
-
-        public string PortNm
-        {
-            get { return Sport.PortName; }
-        }
 
         public void ClosePort()
         {
@@ -145,22 +129,62 @@ namespace ScaleDisplay
                 {
                     bool WeightFound = false;
                     string line = Sport.ReadLine().Trim();
-                    Debug.Print(line);
-                    if (line.Length > 0)
+
+                    if (Properties.Settings.Default.LP7515)
                     {
-                        string[] parts = line.Split(',');
-                        if (parts.Length >= 2)
+                        if (line.Length > 0)
                         {
-                            float.TryParse(parts[0], NumberStyles.Float,
-                                CultureInfo.InvariantCulture, out float weightVal);
-                            string scaleUnits = parts[1];
-                            if (scaleUnits == "lb" || scaleUnits == "kg")
+                            // Expected LP7515 format:
+                            // S1,S2,S3DataS4
+                            // Example: ST,GS,+1234.5lb
+                            string[] parts = line.Split(',');
+
+                            if (parts.Length == 3)
                             {
-                                mf.ApplyWeightReading(weightVal, scaleUnits);
-                                WeightFound = true;
+                                string s1 = parts[0].Trim();   // ST, US, OL
+                                string s2 = parts[1].Trim();   // GS, NT
+                                string payload = parts[2].Trim(); // +1234.5lb
+
+                                if (payload.Length >= 4)
+                                {
+                                    char sign = payload[0];
+                                    string units = payload.Substring(payload.Length - 2).ToLowerInvariant();
+                                    string dataText = payload.Substring(1, payload.Length - 3).Trim();
+
+                                    if ((sign == '+' || sign == '-') &&
+                                        (units == "lb" || units == "kg") &&
+                                        float.TryParse(dataText, NumberStyles.Float,
+                                            CultureInfo.InvariantCulture, out float weightVal))
+                                    {
+                                        if (sign == '-') weightVal = -weightVal;
+
+                                        mf.ApplyWeightReading(weightVal, units);
+                                        WeightFound = true;
+                                    }
+                                }
                             }
+
+                            if (!WeightFound) mf.AppendSerialOutput(line);
                         }
-                        if (!WeightFound) mf.AppendSerialOutput(line);
+                    }
+                    else
+                    {
+                        if (line.Length > 0)
+                        {
+                            string[] parts = line.Split(',');
+                            if (parts.Length >= 2)
+                            {
+                                float.TryParse(parts[0], NumberStyles.Float,
+                                    CultureInfo.InvariantCulture, out float weightVal);
+                                string scaleUnits = parts[1];
+                                if (scaleUnits == "lb" || scaleUnits == "kg")
+                                {
+                                    mf.ApplyWeightReading(weightVal, scaleUnits);
+                                    WeightFound = true;
+                                }
+                            }
+                            if (!WeightFound) mf.AppendSerialOutput(line);
+                        }
                     }
                 }
                 catch (TimeoutException) { }

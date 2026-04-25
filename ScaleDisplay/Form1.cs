@@ -137,7 +137,8 @@ namespace ScaleDisplay
             {
                 if (CommPort == null || !CommPort.IsOpen)
                 {
-                    CommPort = new SerialComm(this, cmbPort.SelectedItem.ToString(), 115200);
+                    int PortBaud = int.TryParse(cmbBaud.SelectedItem.ToString(), out int bb) ? bb : 9600;
+                    CommPort = new SerialComm(this, cmbPort.SelectedItem.ToString(), PortBaud);
                     CommPort.PortDisconnected += CommPort_PortDisconnected;
 
                     if (CommPort.IsOpen)
@@ -146,9 +147,11 @@ namespace ScaleDisplay
                         lblConnectionStatus.Text = "Serial: " + cmbPort.SelectedItem;
                         btnConnect.Text = "Disconnect";
                         cmbPort.Enabled = false;
+                        cmbBaud.Enabled = false;
                         btnRefresh.Enabled = false;
                         UpdateManualControls();
                         Properties.Settings.Default.SerialPort = cmbPort.SelectedItem.ToString();
+                        Properties.Settings.Default.Baud = PortBaud;
                         Properties.Settings.Default.Save();
                     }
                     else
@@ -178,14 +181,19 @@ namespace ScaleDisplay
             {
                 btnConnect.Text = "Disconnect";
                 cmbPort.Enabled = false;
+                cmbBaud.Enabled = false;
                 btnRefresh.Enabled = false;
             }
             else
             {
                 btnConnect.Text = "Connect";
                 cmbPort.Enabled = true;
+                cmbBaud.Enabled = true;
                 btnRefresh.Enabled = true;
             }
+
+            txtCommand.Enabled = !ckLP7515.Checked;
+            btnSendCommand.Enabled = !ckLP7515.Checked;
 
             if (UpdateCombo) RefreshPorts();
 
@@ -1564,6 +1572,7 @@ namespace ScaleDisplay
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            ckLP7515.Checked = Properties.Settings.Default.LP7515;
             LoadEmptyWeight();
             LoadCropSettings();
             LoadAutoWeighSettings();
@@ -1605,14 +1614,28 @@ namespace ScaleDisplay
                 if (cmbPort.Items.Contains(savedPort))
                 {
                     cmbPort.SelectedItem = savedPort;
-                    btnConnect_Click(this, EventArgs.Empty);
                 }
+
+                string SavedBaud = Properties.Settings.Default.Baud.ToString();
+                if (cmbBaud.Items.Contains(SavedBaud))
+                {
+                    cmbBaud.SelectedItem = SavedBaud;
+                }
+                btnConnect_Click(this, EventArgs.Empty);
             }
             catch { }
 
             // Pre-populate report with today's loads
             btnLoadReport_Click(this, EventArgs.Empty);
-            OpenPort();
+        }
+
+        private void ckLP7515_CheckedChanged(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.LP7515 = ckLP7515.Checked;
+            Properties.Settings.Default.Save();
+
+            txtCommand.Enabled = !ckLP7515.Checked;
+            btnSendCommand.Enabled = !ckLP7515.Checked;
         }
     }
 }
