@@ -67,7 +67,6 @@ namespace ScaleDisplay
             { "None",       0m },
         };
 
-        private SerialPort _port;
         private System.Windows.Forms.Timer _signalTimer;
 
         private enum ScaleState { Empty, Settling, Captured }
@@ -115,6 +114,8 @@ namespace ScaleDisplay
         private DateTime _printDate;
         private int _printRowIndex;
 
+        public SerialComm CommPort;
+
         public Form1()
         {
             InitializeComponent();
@@ -129,6 +130,66 @@ namespace ScaleDisplay
 
             InitializeLoadNumber();
             RefreshTodayWeights();
+        }
+        public void OpenPort()
+        {
+            try
+            {
+                if (CommPort == null || !CommPort.IsOpen)
+                {
+                    CommPort = new SerialComm(this, cmbPort.SelectedItem.ToString(), 115200);
+                    CommPort.PortDisconnected += CommPort_PortDisconnected;
+
+                    if (CommPort.IsOpen)
+                    {
+                        _connectionMode = ConnectionMode.Serial;
+                        lblConnectionStatus.Text = "Serial: " + cmbPort.SelectedItem;
+                        btnConnect.Text = "Disconnect";
+                        cmbPort.Enabled = false;
+                        btnRefresh.Enabled = false;
+                        UpdateManualControls();
+                        Properties.Settings.Default.SerialPort = cmbPort.SelectedItem.ToString();
+                        Properties.Settings.Default.Save();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Could not open comm port.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("OpenPort: " + ex.Message);
+            }
+        }
+        private void CommPort_PortDisconnected()
+        {
+            // Ensure UI updates happen on the main thread
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(CommPort_PortDisconnected));
+                return;
+            }
+            UpdateForm();
+        }
+        private void UpdateForm(bool UpdateCombo = true)
+        {
+            if (CommPort != null && CommPort.IsOpen)
+            {
+                btnConnect.Text = "Disconnect";
+                cmbPort.Enabled = false;
+                btnRefresh.Enabled = false;
+            }
+            else
+            {
+                btnConnect.Text = "Connect";
+                cmbPort.Enabled = true;
+                btnRefresh.Enabled = true;
+            }
+
+            if (UpdateCombo) RefreshPorts();
+
+            UpdateManualControls();
         }
 
         // ── Grid setup ───────────────────────────────────────────────────
@@ -511,86 +572,38 @@ namespace ScaleDisplay
 
         private void btnConnect_Click(object sender, EventArgs e)
         {
-            if (_port != null && _port.IsOpen)
-            {
-                _port.Close();
-                _port.Dispose();
-                _port = null;
-                btnConnect.Text = "Connect";
-                cmbPort.Enabled = true;
-                btnRefresh.Enabled = true;
-                UpdateManualControls();
-                lblWeightValue.Text = "---";
-                lblWeightValue.BackColor = SystemColors.Control;
-                lblBushelsValue.Text = "---";
-                lblNetValue.Text = "---";
-                ResetStateMachine();
-                _connectionMode = ConnectionMode.None;
-                lblConnectionStatus.Text = "No connection";
-                return;
-            }
-
-            if (cmbPort.SelectedItem == null) return;
-
-            _port = new SerialPort(cmbPort.SelectedItem.ToString(), 115200) { NewLine = "\n" };
-
             try
             {
-                _port.Open();
-                new Thread(SerialReadLoop) { IsBackground = true }.Start();
-                _connectionMode = ConnectionMode.Serial;
-                lblConnectionStatus.Text = "Serial: " + cmbPort.SelectedItem;
-                btnConnect.Text = "Disconnect";
-                cmbPort.Enabled = false;
-                btnRefresh.Enabled = false;
-                UpdateManualControls();
-                try
+                if (CommPort != null && CommPort.IsOpen)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(PortFile));
-                    File.WriteAllText(PortFile, cmbPort.SelectedItem.ToString());
+                    CommPort.ClosePort();
+                    btnConnect.Text = "Connect";
+                    cmbPort.Enabled = true;
+                    btnRefresh.Enabled = true;
+                    UpdateManualControls();
+                    lblWeightValue.Text = "---";
+                    lblWeightValue.BackColor = SystemColors.Control;
+                    lblBushelsValue.Text = "---";
+                    lblNetValue.Text = "---";
+                    ResetStateMachine();
+                    _connectionMode = ConnectionMode.None;
+                    lblConnectionStatus.Text = "No connection";
                 }
-                catch { }
+                else
+                {
+                    OpenPort();
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Could not open port: " + ex.Message, "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                _port.Dispose();
-                _port = null;
+                MessageBox.Show("Could not open comm port.\n " + ex.Message);
             }
+            UpdateForm();
         }
 
         // ── Serial read thread ───────────────────────────────────────────
 
-        private void SerialReadLoop()
-        {
-            while (_port != null && _port.IsOpen)
-            {
-                try
-                {
-                    string line = _port.ReadLine().Trim();
-                    if (line.Length == 0) continue;
-
-                    string[] parts = line.Split(',');
-                    if (parts.Length >= 2)
-                    {
-                        float.TryParse(parts[0], NumberStyles.Float,
-                            CultureInfo.InvariantCulture, out float weightVal);
-                        string scaleUnits = parts[1];
-                        if (scaleUnits == "lb" || scaleUnits == "kg")
-                        {
-                            ApplyWeightReading(weightVal, scaleUnits);
-                            continue;
-                        }
-                    }
-                    AppendSerialOutput(line);
-                }
-                catch (TimeoutException) { }
-                catch (Exception ex) { AppendSerialOutput("ERR:" + ex.Message); break; }
-            }
-        }
-
-        private void AppendSerialOutput(string line)
+        public void AppendSerialOutput(string line)
         {
             if (txtSerialOutput.InvokeRequired)
                 txtSerialOutput.Invoke(new Action(() => AppendSerialOutput(line)));
@@ -629,7 +642,7 @@ namespace ScaleDisplay
 
         // Converts, updates state machine, and posts the UI update.
         // extraUiAction (optional) runs inside the Invoke before the standard weight labels.
-        private void ApplyWeightReading(float weightVal, string scaleUnits,
+        public void ApplyWeightReading(float weightVal, string scaleUnits,
                                         Action extraUiAction = null)
         {
             string displayUnits = _manualUnits;
@@ -984,10 +997,9 @@ namespace ScaleDisplay
 
         private void SendCommand(string cmd)
         {
-            if (_port != null && _port.IsOpen)
+            if (CommPort != null && CommPort.IsOpen)
             {
-                try { _port.WriteLine(cmd); }
-                catch { }
+                CommPort.WriteLine(cmd);
             }
             else if (_connectionMode == ConnectionMode.Udp)
             {
@@ -1005,7 +1017,7 @@ namespace ScaleDisplay
             string cmd = txtCommand.Text.Trim();
             if (cmd.Length == 0) return;
 
-            if (_port != null && _port.IsOpen)
+            if (CommPort != null && CommPort.IsOpen)
             {
                 AppendSerialOutput("> " + cmd + " [serial]");
                 SendCommand(cmd);
@@ -1093,7 +1105,7 @@ namespace ScaleDisplay
 
         private void UpdateManualControls()
         {
-            bool hasLiveWeight = (_port != null && _port.IsOpen) || _connectionMode == ConnectionMode.Udp;
+            bool hasLiveWeight = (CommPort != null && CommPort.IsOpen) || _connectionMode == ConnectionMode.Udp;
             bool autoWeigh = chkAutoWeigh.Checked;
             // Capture buttons need a live scale reading; manual entry and record work without one
             btnCaptureGross.Enabled = hasLiveWeight && !autoWeigh;
@@ -1410,75 +1422,9 @@ namespace ScaleDisplay
 
         // ── Position persistence ─────────────────────────────────────────
 
-        protected override void OnLoad(EventArgs e)
-        {
-            base.OnLoad(e);
-
-            LoadEmptyWeight();
-            LoadCropSettings();
-            LoadAutoWeighSettings();
-            _settingsLoaded = true;
-            _lastDisplayUnits = "";   // force ApplyUnits to run regardless of default
-            ApplyUnits(_manualUnits);
-            UpdateManualControls();
-            // ApplyUnits guards against re-entry; set report header explicitly in case it was skipped
-            dgvReport.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
-            dgvTodayWeights.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
-
-            try
-            {
-                if (File.Exists(PositionFile))
-                {
-                    string[] parts = File.ReadAllText(PositionFile).Split(',');
-                    if (parts.Length == 2 &&
-                        int.TryParse(parts[0], out int x) &&
-                        int.TryParse(parts[1], out int y))
-                    {
-                        Point saved = new Point(x, y);
-                        foreach (Screen screen in Screen.AllScreens)
-                        {
-                            if (screen.WorkingArea.Contains(saved))
-                            {
-                                Location = saved;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-
-            // Auto-connect to last good port
-            try
-            {
-                if (File.Exists(PortFile))
-                {
-                    string savedPort = File.ReadAllText(PortFile).Trim();
-                    if (cmbPort.Items.Contains(savedPort))
-                    {
-                        cmbPort.SelectedItem = savedPort;
-                        btnConnect_Click(this, EventArgs.Empty);
-                    }
-                }
-            }
-            catch { }
-
-            // Pre-populate report with today's loads
-            btnLoadReport_Click(this, EventArgs.Empty);
-        }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            if (_port != null)
-            {
-                var portToClose = _port;
-                _port = null;
-                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-                {
-                    try { portToClose.Close(); } catch { }
-                    try { portToClose.Dispose(); } catch { }
-                });
-            }
 
             try
             {
@@ -1614,6 +1560,59 @@ namespace ScaleDisplay
         private void gbData_Paint(object sender, PaintEventArgs e)
         {
             DrawGroupBox((GroupBox)sender, e.Graphics, this.BackColor, Color.Black, Color.Blue);
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            LoadEmptyWeight();
+            LoadCropSettings();
+            LoadAutoWeighSettings();
+            _settingsLoaded = true;
+            _lastDisplayUnits = "";   // force ApplyUnits to run regardless of default
+            ApplyUnits(_manualUnits);
+            UpdateManualControls();
+            // ApplyUnits guards against re-entry; set report header explicitly in case it was skipped
+            dgvReport.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
+            dgvTodayWeights.Columns[3].HeaderText = "Weight (" + _manualUnits + ")";
+
+            try
+            {
+                if (File.Exists(PositionFile))
+                {
+                    string[] parts = File.ReadAllText(PositionFile).Split(',');
+                    if (parts.Length == 2 &&
+                        int.TryParse(parts[0], out int x) &&
+                        int.TryParse(parts[1], out int y))
+                    {
+                        Point saved = new Point(x, y);
+                        foreach (Screen screen in Screen.AllScreens)
+                        {
+                            if (screen.WorkingArea.Contains(saved))
+                            {
+                                Location = saved;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // Auto-connect to last good port
+            try
+            {
+                string savedPort = Properties.Settings.Default.SerialPort;
+                if (cmbPort.Items.Contains(savedPort))
+                {
+                    cmbPort.SelectedItem = savedPort;
+                    btnConnect_Click(this, EventArgs.Empty);
+                }
+            }
+            catch { }
+
+            // Pre-populate report with today's loads
+            btnLoadReport_Click(this, EventArgs.Empty);
+            OpenPort();
         }
     }
 }

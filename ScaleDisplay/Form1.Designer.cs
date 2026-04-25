@@ -76,7 +76,6 @@ namespace ScaleDisplay
             this.btnLoadReport = new System.Windows.Forms.Button();
             this.dgvReport = new System.Windows.Forms.DataGridView();
             this.btnPrint = new System.Windows.Forms.Button();
-            this.backgroundWorker1 = new System.ComponentModel.BackgroundWorker();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -240,7 +239,7 @@ namespace ScaleDisplay
             // 
             this.lblConnectionStatus.AutoSize = true;
             this.lblConnectionStatus.ForeColor = System.Drawing.SystemColors.GrayText;
-            this.lblConnectionStatus.Location = new System.Drawing.Point(45, 76);
+            this.lblConnectionStatus.Location = new System.Drawing.Point(45, 73);
             this.lblConnectionStatus.Name = "lblConnectionStatus";
             this.lblConnectionStatus.Size = new System.Drawing.Size(99, 17);
             this.lblConnectionStatus.TabIndex = 99;
@@ -813,6 +812,7 @@ namespace ScaleDisplay
             this.Text = "Scale Reader";
             this.TopMost = true;
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
+            this.Load += new System.EventHandler(this.Form1_Load);
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).EndInit();
@@ -905,6 +905,5 @@ namespace ScaleDisplay
         private Label label1;
         private TextBox textBox1;
         private GroupBox gbData;
-        private System.ComponentModel.BackgroundWorker backgroundWorker1;
     }
 }

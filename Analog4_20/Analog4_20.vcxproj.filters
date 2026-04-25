@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Analog4_20.ino" />
+    <ClCompile Include="Analog.ino" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.Analog4_20.vsarduino.h">

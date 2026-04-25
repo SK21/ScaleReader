@@ -17,5 +17,6 @@
 // User Defined Errors to Ignore below... [vm.intellisense.ignore-error-codes]
 #include <arduino.h>
 #include "..\Analog4_20.ino"
+#include "..\Analog.ino"
 #endif
 #endif
