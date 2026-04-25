@@ -76,11 +76,25 @@ IPAddress ip(192, 168, 1, 53);            // Teensy static IP (fallback if DHCP 
 EthernetUDP udp;
 
 // -------------------------------
-// TEST MODE  — set false for real hardware
+// MODES  — toggle via serial commands
 // -------------------------------
-bool TEST_MODE = true;
+bool WEIGHT_TEST  = false;  // "WT:1/0" — synthetic weight instead of real hardware
+bool HW_TEST_MODE = false;   // "HW:1/0" — prints raw voltages on all 4 AIN channels
 float testWeight = 49523;
-float testStep = 500.0f;   // lb per update
+
+// -------------------------------
+// HARDWARE SOURCE
+// -------------------------------
+// SRC_420  = 4-20 mA isolated output  → AIN2, 250 Ω shunt (R17)
+// SRC_010V = 0-10 VDC output          → AIN1, 5K/3K divider (R3/R14)
+// Set with serial "SRC:420" or "SRC:010"
+const uint8_t SRC_420  = 0;   // 4-20 mA — AIN2
+const uint8_t SRC_010V = 1;   // 0-10 VDC — AIN1
+uint8_t hwSource = SRC_420;
+
+// AIN1 divider: R14/(R3+R14) = 3K/8K = 0.375  →  inverse = 8/3
+const float AIN1_DIVIDER_INV = 8.0f / 3.0f;
+const float VDC_FS = 10.0f;   // full-scale VDC output
 
 uint32_t LoopTime = 200;
 uint32_t LastTime;
@@ -150,15 +164,10 @@ void setup() {
 		udp.begin(UDP_PORT);   // bind anyway so socket is ready if link comes up
 	}
 
-	Serial.print("Test Mode: ");
-	if (TEST_MODE)
-	{
-		Serial.println("ON");
-	}
-	else
-	{
-		Serial.println("OFF");
-	}
+	Serial.print("Weight Test: ");
+	Serial.println(WEIGHT_TEST ? "ON" : "OFF");
+	Serial.print("HW Source: ");
+	Serial.println(hwSource == SRC_420 ? "4-20mA (AIN2)" : "0-10V (AIN1)");
 
 	Serial.println("Setup complete.");
 	Serial.println("");
@@ -171,7 +180,7 @@ void loop()
 		LastTime = millis();
 		float volts, current_mA, weight;
 
-		if (TEST_MODE)
+		if (WEIGHT_TEST)
 		{
 			// -------------------------------
 			// Generate synthetic test data
@@ -181,23 +190,26 @@ void loop()
 			// Convert weight → current → volts (reverse of real math)
 			current_mA = (weight / FS_WEIGHT) * 16.0f + 4.0f;
 			volts = (current_mA / 1000.0f) * SHUNT_OHMS;
-
-			// Ramp test weight up/down
-			//testWeight += testStep;
-			//if (testWeight >= FS_WEIGHT || testWeight <= 0)
-			//	testStep = -testStep;
-
+		}
+		else if (hwSource == SRC_420)
+		{
+			// -------------------------------
+			// 4-20 mA — AIN2, 250 Ω shunt
+			// -------------------------------
+			int16_t raw = ads.readADC_SingleEnded(2);
+			volts = raw * 6.144f / 32768.0f;
+			current_mA = (volts / SHUNT_OHMS) * 1000.0f;
+			weight = (current_mA - 4.0f) / 16.0f * FS_WEIGHT;
 		}
 		else
 		{
 			// -------------------------------
-			// REAL ADS1115 DATA
+			// 0-10 VDC — AIN1, 5K/3K divider
 			// -------------------------------
-			int16_t raw = ads.readADC_SingleEnded(2);
-
-			volts = raw * 6.144f / 32768.0f;
-			current_mA = (volts / SHUNT_OHMS) * 1000.0f;
-			weight = (current_mA - 4.0f) / 16.0f * FS_WEIGHT;
+			int16_t raw = ads.readADC_SingleEnded(1);
+			volts = raw * 6.144f / 32768.0f * AIN1_DIVIDER_INV;   // actual indicator volts
+			current_mA = 0.0f;
+			weight = (volts / VDC_FS) * FS_WEIGHT;
 		}
 
 		// Clamp: sub-4 mA noise produces negative weight
@@ -223,8 +235,20 @@ void loop()
 			udp.endPacket();
 		}
 
-		// USB serial — same weight,units format as ScaleReader so the app needs no format detection
-		Serial.printf("%.1f,lb\n", weight);
+		if (HW_TEST_MODE)
+		{
+			// Print raw voltages on all four ADS1115 channels for hardware identification
+			float v[4];
+			for (int ch = 0; ch < 4; ch++)
+				v[ch] = ads.readADC_SingleEnded(ch) * 6.144f / 32768.0f;
+			Serial.printf("AIN0=%.3fV  AIN1=%.3fV  AIN2=%.3fV  AIN3=%.3fV\n",
+				v[0], v[1], v[2], v[3]);
+		}
+		else
+		{
+			// USB serial — same weight,units format as ScaleReader so the app needs no format detection
+			Serial.printf("%.1f,lb\n", weight);
+		}
 	}
 
 	// Incoming UDP from PC: relay commands 
@@ -243,27 +267,38 @@ void loop()
 		}
 	}
 
-	// Relay commands from PC via USB serial (same RELAY:1 / RELAY:0 protocol)
+	if (millis() - LastBlink > 1000)
+	{
+		LastBlink = millis();
+		BlinkState = !BlinkState;
+		digitalWrite(LED_BUILTIN, BlinkState);
+	}
+}
+
+// Called automatically by the framework whenever USB serial data is available
+void serialEvent()
+{
 	while (Serial.available())
 	{
 		char c = (char)Serial.read();
-		if (c == '\n')
+		if (c == '\n' || c == '\r')
 		{
 			serialCmd.trim();
-			if (serialCmd == "RELAY:1")      digitalWrite(RELAY_PIN, HIGH);
+			if (serialCmd.length() == 0) { serialCmd = ""; continue; }
+			Serial.print("RX:["); Serial.print(serialCmd); Serial.println("]");
+			if      (serialCmd == "RELAY:1") digitalWrite(RELAY_PIN, HIGH);
 			else if (serialCmd == "RELAY:0") digitalWrite(RELAY_PIN, LOW);
+			else if (serialCmd == "WT:1")    { WEIGHT_TEST = true;  HW_TEST_MODE = false; Serial.println("Weight test ON"); }
+			else if (serialCmd == "WT:0")    { WEIGHT_TEST = false;                       Serial.println("Weight test OFF"); }
+			else if (serialCmd == "HW:1")    { HW_TEST_MODE = true;  Serial.println("HW test ON"); }
+			else if (serialCmd == "HW:0")    { HW_TEST_MODE = false; Serial.println("HW test OFF"); }
+			else if (serialCmd == "SRC:420") { hwSource = SRC_420;   Serial.println("Source: 4-20mA (AIN2)"); }
+			else if (serialCmd == "SRC:010") { hwSource = SRC_010V;  Serial.println("Source: 0-10V (AIN1)"); }
 			serialCmd = "";
 		}
 		else
 		{
 			serialCmd += c;
 		}
-	}
-
-	if (millis() - LastBlink > 1000)
-	{
-		LastBlink = millis();
-		BlinkState = !BlinkState;
-		digitalWrite(LED_BUILTIN, BlinkState);
 	}
 }

@@ -513,7 +513,6 @@ namespace ScaleDisplay
         {
             if (_port != null && _port.IsOpen)
             {
-                _port.DataReceived -= Port_DataReceived;
                 _port.Close();
                 _port.Dispose();
                 _port = null;
@@ -534,11 +533,11 @@ namespace ScaleDisplay
             if (cmbPort.SelectedItem == null) return;
 
             _port = new SerialPort(cmbPort.SelectedItem.ToString(), 115200) { NewLine = "\n" };
-            _port.DataReceived += Port_DataReceived;
 
             try
             {
                 _port.Open();
+                new Thread(SerialReadLoop) { IsBackground = true }.Start();
                 _connectionMode = ConnectionMode.Serial;
                 lblConnectionStatus.Text = "Serial: " + cmbPort.SelectedItem;
                 btnConnect.Text = "Disconnect";
@@ -561,24 +560,50 @@ namespace ScaleDisplay
             }
         }
 
-        // ── Data received ────────────────────────────────────────────────
+        // ── Serial read thread ───────────────────────────────────────────
 
-        private void Port_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        private void SerialReadLoop()
         {
-            try
+            while (_port != null && _port.IsOpen)
             {
-                string line = _port.ReadLine().Trim();
-                string[] parts = line.Split(',');
-                if (parts.Length < 2) return;
+                try
+                {
+                    string line = _port.ReadLine().Trim();
+                    if (line.Length == 0) continue;
 
-                float.TryParse(parts[0], NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out float weightVal);
-                string scaleUnits = parts[1];
-                if (scaleUnits != "lb" && scaleUnits != "kg") return;
-
-                ApplyWeightReading(weightVal, scaleUnits);
+                    string[] parts = line.Split(',');
+                    if (parts.Length >= 2)
+                    {
+                        float.TryParse(parts[0], NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float weightVal);
+                        string scaleUnits = parts[1];
+                        if (scaleUnits == "lb" || scaleUnits == "kg")
+                        {
+                            ApplyWeightReading(weightVal, scaleUnits);
+                            continue;
+                        }
+                    }
+                    AppendSerialOutput(line);
+                }
+                catch (TimeoutException) { }
+                catch (Exception ex) { AppendSerialOutput("ERR:" + ex.Message); break; }
             }
-            catch { }
+        }
+
+        private void AppendSerialOutput(string line)
+        {
+            if (txtSerialOutput.InvokeRequired)
+                txtSerialOutput.Invoke(new Action(() => AppendSerialOutput(line)));
+            else
+            {
+                txtSerialOutput.AppendText(line + "\r\n");
+                // Keep last 20 lines
+                var lines = txtSerialOutput.Lines;
+                if (lines.Length > 20)
+                    txtSerialOutput.Text = string.Join("\r\n", lines, lines.Length - 20, 20);
+                txtSerialOutput.SelectionStart = txtSerialOutput.Text.Length;
+                txtSerialOutput.ScrollToCaret();
+            }
         }
 
         // Parses the weight field from a WT sentence (shared by serial and UDP paths).
@@ -955,21 +980,53 @@ namespace ScaleDisplay
             float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)
                 ? FormatKg(v) : raw;
 
-        private void SendRelay(bool on)
+        private void SendRelay(bool on) => SendCommand(on ? "RELAY:1" : "RELAY:0");
+
+        private void SendCommand(string cmd)
         {
             if (_port != null && _port.IsOpen)
             {
-                try { _port.WriteLine(on ? "RELAY:1" : "RELAY:0"); }
+                try { _port.WriteLine(cmd); }
                 catch { }
             }
             else if (_connectionMode == ConnectionMode.Udp)
             {
                 try
                 {
-                    byte[] cmd = Encoding.ASCII.GetBytes(on ? "RELAY:1" : "RELAY:0");
-                    _udp.Send(cmd, cmd.Length, new IPEndPoint(IPAddress.Broadcast, 5005));
+                    byte[] bytes = Encoding.ASCII.GetBytes(cmd);
+                    _udp.Send(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 5005));
                 }
                 catch { }
+            }
+        }
+
+        private void btnSendCommand_Click(object sender, EventArgs e)
+        {
+            string cmd = txtCommand.Text.Trim();
+            if (cmd.Length == 0) return;
+
+            if (_port != null && _port.IsOpen)
+            {
+                AppendSerialOutput("> " + cmd + " [serial]");
+                SendCommand(cmd);
+            }
+            else if (_connectionMode == ConnectionMode.Udp)
+            {
+                AppendSerialOutput("> " + cmd + " [UDP]");
+                SendCommand(cmd);
+            }
+            else
+            {
+                AppendSerialOutput("Not connected");
+            }
+        }
+
+        private void txtCommand_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                btnSendCommand_Click(sender, e);
+                e.SuppressKeyPress = true;
             }
         }
 
@@ -1414,10 +1471,6 @@ namespace ScaleDisplay
         {
             if (_port != null)
             {
-                // Unsubscribe first so no new DataReceived events fire and try to Invoke
-                // onto the closing form, then close on a background thread so the UI thread
-                // stays free to drain any Invoke already in flight (prevents deadlock).
-                _port.DataReceived -= Port_DataReceived;
                 var portToClose = _port;
                 _port = null;
                 System.Threading.ThreadPool.QueueUserWorkItem(_ =>
