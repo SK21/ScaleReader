@@ -113,6 +113,8 @@ namespace ScaleDisplay
         private List<string[]> _printRows;
         private DateTime _printDate;
         private int _printRowIndex;
+        private string _printTotalWeight = "0";
+        private string _printTotalBushels = "0";
 
         public SerialComm CommPort;
 
@@ -1405,6 +1407,8 @@ namespace ScaleDisplay
             }
             _printDate = dtpReport.Value.Date;
             _printRowIndex = 0;
+            _printTotalWeight = lbTotalWeight.Text;
+            _printTotalBushels = lbTotalBushels.Text;
 
             PrintDocument pd = new PrintDocument();
             pd.PrintPage += PrintPage;
@@ -1427,6 +1431,7 @@ namespace ScaleDisplay
             Font titleFont = new Font("Arial", 13, FontStyle.Bold);
             Font headerFont = new Font("Arial", 9, FontStyle.Bold);
             Font dataFont = new Font("Arial", 9);
+            Font totalsFont = new Font("Arial", 10, FontStyle.Bold);
             float lineH = dataFont.GetHeight(e.Graphics) + 3;
             float x = e.MarginBounds.Left;
             float y = e.MarginBounds.Top;
@@ -1455,11 +1460,25 @@ namespace ScaleDisplay
                 if (y + lineH > e.MarginBounds.Bottom)
                 {
                     e.HasMorePages = true;
+                    totalsFont.Dispose();
                     return;
                 }
             }
 
+            y += 6;
+            e.Graphics.DrawLine(Pens.Black, x, y, e.MarginBounds.Right, y);
+            y += 6;
+
+            StringFormat right = new StringFormat { Alignment = StringAlignment.Far };
+            e.Graphics.DrawString("Totals", totalsFont, Brushes.Black, x + 183, y);
+            e.Graphics.DrawString(_printTotalWeight, totalsFont, Brushes.Black,
+                new RectangleF(x + 258, y, 85, totalsFont.GetHeight(e.Graphics) + 2), right);
+            e.Graphics.DrawString(_printTotalBushels, totalsFont, Brushes.Black,
+                new RectangleF(x + 348, y, 60, totalsFont.GetHeight(e.Graphics) + 2), right);
+            right.Dispose();
+
             e.HasMorePages = false;
+            totalsFont.Dispose();
         }
 
         private void DrawPrintRow(Graphics g, Font font, float x, float y, float pageRight,
