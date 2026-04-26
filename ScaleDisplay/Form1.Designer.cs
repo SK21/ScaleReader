@@ -79,6 +79,10 @@ namespace ScaleDisplay
             this.label2 = new System.Windows.Forms.Label();
             this.cmbBaud = new System.Windows.Forms.ComboBox();
             this.ckLP7515 = new System.Windows.Forms.CheckBox();
+            this.lbTotalWeight = new System.Windows.Forms.Label();
+            this.lbTotalBushels = new System.Windows.Forms.Label();
+            this.lbDailyBushels = new System.Windows.Forms.Label();
+            this.lbDailyWeight = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -263,6 +267,8 @@ namespace ScaleDisplay
             // 
             // tabWeight
             // 
+            this.tabWeight.Controls.Add(this.lbDailyWeight);
+            this.tabWeight.Controls.Add(this.lbDailyBushels);
             this.tabWeight.Controls.Add(this.lblWeightValue);
             this.tabWeight.Controls.Add(this.btnManualWeigh);
             this.tabWeight.Controls.Add(this.lblCrop);
@@ -502,7 +508,7 @@ namespace ScaleDisplay
             // 
             // btnDeleteWeight
             // 
-            this.btnDeleteWeight.Location = new System.Drawing.Point(103, 526);
+            this.btnDeleteWeight.Location = new System.Drawing.Point(14, 526);
             this.btnDeleteWeight.Name = "btnDeleteWeight";
             this.btnDeleteWeight.Size = new System.Drawing.Size(130, 26);
             this.btnDeleteWeight.TabIndex = 17;
@@ -511,7 +517,7 @@ namespace ScaleDisplay
             // 
             // btnPrintReceipt
             // 
-            this.btnPrintReceipt.Location = new System.Drawing.Point(259, 526);
+            this.btnPrintReceipt.Location = new System.Drawing.Point(150, 526);
             this.btnPrintReceipt.Name = "btnPrintReceipt";
             this.btnPrintReceipt.Size = new System.Drawing.Size(130, 26);
             this.btnPrintReceipt.TabIndex = 18;
@@ -726,6 +732,8 @@ namespace ScaleDisplay
             // 
             // tabReport
             // 
+            this.tabReport.Controls.Add(this.lbTotalBushels);
+            this.tabReport.Controls.Add(this.lbTotalWeight);
             this.tabReport.Controls.Add(this.label1);
             this.tabReport.Controls.Add(this.textBox1);
             this.tabReport.Controls.Add(this.lblDate);
@@ -791,7 +799,7 @@ namespace ScaleDisplay
             this.dgvReport.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.dgvReport.Location = new System.Drawing.Point(8, 107);
             this.dgvReport.Name = "dgvReport";
-            this.dgvReport.Size = new System.Drawing.Size(496, 445);
+            this.dgvReport.Size = new System.Drawing.Size(496, 419);
             this.dgvReport.TabIndex = 2;
             this.dgvReport.SelectionChanged += new System.EventHandler(this.dgvReport_SelectionChanged);
             // 
@@ -840,6 +848,46 @@ namespace ScaleDisplay
             this.ckLP7515.Text = "LP7515";
             this.ckLP7515.UseVisualStyleBackColor = true;
             this.ckLP7515.CheckedChanged += new System.EventHandler(this.ckLP7515_CheckedChanged);
+            // 
+            // lbTotalWeight
+            // 
+            this.lbTotalWeight.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbTotalWeight.Location = new System.Drawing.Point(306, 529);
+            this.lbTotalWeight.Name = "lbTotalWeight";
+            this.lbTotalWeight.Size = new System.Drawing.Size(107, 26);
+            this.lbTotalWeight.TabIndex = 23;
+            this.lbTotalWeight.Text = "100,000";
+            this.lbTotalWeight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // lbTotalBushels
+            // 
+            this.lbTotalBushels.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbTotalBushels.Location = new System.Drawing.Point(419, 529);
+            this.lbTotalBushels.Name = "lbTotalBushels";
+            this.lbTotalBushels.Size = new System.Drawing.Size(85, 26);
+            this.lbTotalBushels.TabIndex = 24;
+            this.lbTotalBushels.Text = "100,000";
+            this.lbTotalBushels.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // lbDailyBushels
+            // 
+            this.lbDailyBushels.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbDailyBushels.Location = new System.Drawing.Point(419, 525);
+            this.lbDailyBushels.Name = "lbDailyBushels";
+            this.lbDailyBushels.Size = new System.Drawing.Size(85, 26);
+            this.lbDailyBushels.TabIndex = 25;
+            this.lbDailyBushels.Text = "100,000";
+            this.lbDailyBushels.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // lbDailyWeight
+            // 
+            this.lbDailyWeight.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbDailyWeight.Location = new System.Drawing.Point(292, 525);
+            this.lbDailyWeight.Name = "lbDailyWeight";
+            this.lbDailyWeight.Size = new System.Drawing.Size(109, 26);
+            this.lbDailyWeight.TabIndex = 26;
+            this.lbDailyWeight.Text = "100,000";
+            this.lbDailyWeight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // Form1
             // 
@@ -951,5 +999,9 @@ namespace ScaleDisplay
         private CheckBox ckLP7515;
         private Label label2;
         private ComboBox cmbBaud;
+        private Label lbDailyBushels;
+        private Label lbTotalBushels;
+        private Label lbTotalWeight;
+        private Label lbDailyWeight;
     }
 }

@@ -434,6 +434,8 @@ namespace ScaleDisplay
         {
             _notesByLoad.Clear();
             dgvTodayWeights.Rows.Clear();
+            lbDailyWeight.Text = "0";
+            lbDailyBushels.Text = "0";
             string path = GetCsvPath(DateTime.Today);
             if (!File.Exists(path)) return;
 
@@ -492,6 +494,8 @@ namespace ScaleDisplay
                 dgvTodayWeights.ClearSelection();
                 dgvTodayWeights.Rows[last].Selected = true;
             }
+
+            UpdateTodayTotals();
         }
 
         private static bool IsUnitsField(string s) => s == "lb" || s == "kg";
@@ -499,6 +503,50 @@ namespace ScaleDisplay
         private static string FormatBushels(string raw) =>
             float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out float v)
                 ? (v > 0 ? v.ToString("N0") : "---") : raw;
+
+        private void UpdateTodayTotals()
+        {
+            decimal totalWeight = 0m;
+            decimal totalBushels = 0m;
+
+            foreach (DataGridViewRow row in dgvTodayWeights.Rows)
+            {
+                if (row.IsNewRow) continue;
+
+                if (decimal.TryParse(row.Cells[3].Value?.ToString(), NumberStyles.Any,
+                    CultureInfo.CurrentCulture, out decimal weight))
+                    totalWeight += weight;
+
+                if (decimal.TryParse(row.Cells[4].Value?.ToString(), NumberStyles.Any,
+                    CultureInfo.CurrentCulture, out decimal bushels))
+                    totalBushels += bushels;
+            }
+
+            lbDailyWeight.Text = totalWeight.ToString("N0", CultureInfo.CurrentCulture);
+            lbDailyBushels.Text = totalBushels.ToString("N0", CultureInfo.CurrentCulture);
+        }
+
+        private void UpdateReportTotals()
+        {
+            decimal totalWeight = 0m;
+            decimal totalBushels = 0m;
+
+            foreach (DataGridViewRow row in dgvReport.Rows)
+            {
+                if (row.IsNewRow) continue;
+
+                if (decimal.TryParse(row.Cells[3].Value?.ToString(), NumberStyles.Any,
+                    CultureInfo.CurrentCulture, out decimal weight))
+                    totalWeight += weight;
+
+                if (decimal.TryParse(row.Cells[4].Value?.ToString(), NumberStyles.Any,
+                    CultureInfo.CurrentCulture, out decimal bushels))
+                    totalBushels += bushels;
+            }
+
+            lbTotalWeight.Text = totalWeight.ToString("N0", CultureInfo.CurrentCulture);
+            lbTotalBushels.Text = totalBushels.ToString("N0", CultureInfo.CurrentCulture);
+        }
 
         private void FlushCurrentNote()
         {
@@ -1247,6 +1295,8 @@ namespace ScaleDisplay
             _reportNotesByLoad.Clear();
             _reportDisplayedLoad = null;
             textBox1.Text = "";
+            lbTotalWeight.Text = "0";
+            lbTotalBushels.Text = "0";
             string path = GetCsvPath(dtpReport.Value.Date);
 
             if (!File.Exists(path))
@@ -1301,6 +1351,8 @@ namespace ScaleDisplay
                     dgvReport.Rows.Add(dtDisplay, load, crop, FormatKgStr(weight), FormatBushels(bushels));
                 }
             }
+
+            UpdateReportTotals();
         }
 
         private void dgvReport_SelectionChanged(object sender, EventArgs e)
