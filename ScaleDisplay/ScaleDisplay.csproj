@@ -6,6 +6,7 @@
     <StartupObject>ScaleDisplay.Program</StartupObject>
     <PackageIcon>scales.png</PackageIcon>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <OutputPath>..\ScaleDisplayApp\</OutputPath>
@@ -29,5 +30,8 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Resources.Extensions" Version="10.0.7" />
   </ItemGroup>
 </Project>

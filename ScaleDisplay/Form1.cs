@@ -109,6 +109,12 @@ namespace ScaleDisplay
         private volatile int _stabilitySeconds = 15;
         private volatile int _signalDurationSeconds = 5;
 
+        // Split weighing
+        private const int SplitMaxSections = 5;
+        private readonly List<float> _splitGrossSections = new List<float>();
+        private readonly List<float> _splitTruckSections = new List<float>();
+        private bool _splitNoteActive;
+
         // Print state
         private List<string[]> _printRows;
         private DateTime _printDate;
@@ -311,6 +317,8 @@ namespace ScaleDisplay
             lblNetLabel.Text = "Net (" + units + "):";
             lblMinWeight.Text = "Min Weight (" + units + "):";
             lblTolerance.Text = "Tolerance (" + units + "):";
+            label3.Text = "Gross (" + units + "):";
+            label4.Text = "Truck (" + units + "):";
             dgvTodayWeights.Columns[3].HeaderText = "Weight (" + units + ")";
             dgvReport.Columns[3].HeaderText = "Weight (" + units + ")";
             SetGrossWeightDisplay(_grossWeightKg);
@@ -351,9 +359,26 @@ namespace ScaleDisplay
         private void btnCaptureTruck_Click(object sender, EventArgs e)
         {
             if (_currentWeight <= 0) return;
-            decimal val = Math.Max(numEmptyWeight.Minimum,
-                          Math.Min(numEmptyWeight.Maximum, (decimal)Math.Round(_currentWeight)));
-            numEmptyWeight.Value = val;
+            if (ckSplitMode.Checked)
+            {
+                if (_splitTruckSections.Count >= SplitMaxSections) return;
+                float sectionKg = _currentUnits == "lb" ? _currentWeight / 2.20462f : _currentWeight;
+                _splitTruckSections.Add(sectionKg);
+                float totalKg = SumList(_splitTruckSections);
+                _emptyWeightKg = totalKg;
+                SetEmptyWeightDisplay(totalKg);
+                UpdateNet();
+                UpdateBushels();
+                UpdateSplitNote();
+                btnDeleteTruckSplit.Enabled = true;
+                UpdateManualControls();
+            }
+            else
+            {
+                decimal val = Math.Max(numEmptyWeight.Minimum,
+                              Math.Min(numEmptyWeight.Maximum, (decimal)Math.Round(_currentWeight)));
+                numEmptyWeight.Value = val;
+            }
         }
 
         private void SetGrossWeightDisplay(float kg)
@@ -378,9 +403,26 @@ namespace ScaleDisplay
         private void btnCaptureGross_Click(object sender, EventArgs e)
         {
             if (_currentWeight <= 0) return;
-            decimal val = Math.Max(numGrossWeight.Minimum,
-                          Math.Min(numGrossWeight.Maximum, (decimal)Math.Round(_currentWeight)));
-            numGrossWeight.Value = val;
+            if (ckSplitMode.Checked)
+            {
+                if (_splitGrossSections.Count >= SplitMaxSections) return;
+                float sectionKg = _currentUnits == "lb" ? _currentWeight / 2.20462f : _currentWeight;
+                _splitGrossSections.Add(sectionKg);
+                float totalKg = SumList(_splitGrossSections);
+                _grossWeightKg = totalKg;
+                SetGrossWeightDisplay(totalKg);
+                UpdateNet();
+                UpdateBushels();
+                UpdateSplitNote();
+                btnDeleteGrossSplit.Enabled = true;
+                UpdateManualControls();
+            }
+            else
+            {
+                decimal val = Math.Max(numGrossWeight.Minimum,
+                              Math.Min(numGrossWeight.Maximum, (decimal)Math.Round(_currentWeight)));
+                numGrossWeight.Value = val;
+            }
         }
 
         private void SaveEmptyWeight()
@@ -552,6 +594,7 @@ namespace ScaleDisplay
 
         private void FlushCurrentNote()
         {
+            if (_splitNoteActive) return;
             if (_displayedNoteLoad == null) return;
             string current = txtNote.Text.Replace("\r\n", " ").Replace("\n", " ").Trim();
             if (!_notesByLoad.TryGetValue(_displayedNoteLoad, out string stored) || current != stored)
@@ -563,6 +606,8 @@ namespace ScaleDisplay
 
         private void dgvTodayWeights_SelectionChanged(object sender, EventArgs e)
         {
+            if (_splitNoteActive) return;
+
             FlushCurrentNote();
 
             if (dgvTodayWeights.SelectedRows.Count == 0)
@@ -574,7 +619,7 @@ namespace ScaleDisplay
 
             string load = dgvTodayWeights.SelectedRows[0].Cells[1].Value?.ToString() ?? "";
             _displayedNoteLoad = load;
-            txtNote.Text = _notesByLoad.TryGetValue(load, out string note) ? note : "";
+            txtNote.Text = ExpandNoteForDisplay(_notesByLoad.TryGetValue(load, out string note) ? note : "");
         }
 
         private void SaveNoteToCSV(string load, string note) =>
@@ -846,6 +891,25 @@ namespace ScaleDisplay
             _signalTimer.Start();
             SendRelay(true);
             RefreshTodayWeights(); // selects new row → SelectionChanged sets _displayedNoteLoad correctly
+
+            if (ckSplitMode.Checked)
+            {
+                _splitGrossSections.Clear();
+                _splitTruckSections.Clear();
+                _splitNoteActive = false;
+                btnDeleteGrossSplit.Enabled = false;
+                btnDeleteTruckSplit.Enabled = false;
+                numericUpDown1.Value = 0;
+                numericUpDown2.Value = 0;
+                // Load the note for the newly logged row (contains the split breakdown)
+                if (dgvTodayWeights.SelectedRows.Count > 0)
+                {
+                    string newLoad = dgvTodayWeights.SelectedRows[0].Cells[1].Value?.ToString() ?? "";
+                    _displayedNoteLoad = newLoad;
+                    txtNote.Text = ExpandNoteForDisplay(_notesByLoad.TryGetValue(newLoad, out string n) ? n : "");
+                }
+                UpdateManualControls();
+            }
         }
 
         private void btnDeleteWeight_Click(object sender, EventArgs e)
@@ -937,7 +1001,7 @@ namespace ScaleDisplay
                 TruckKg = _emptyWeightKg,
                 NetKg = netKg,
                 Bushels = bushels,
-                Note = _notesByLoad.TryGetValue(load, out string rn) ? rn : "",
+                Note = ExpandNoteForDisplay(_notesByLoad.TryGetValue(load, out string rn) ? rn : ""),
             };
 
             PrintDocument pd = new PrintDocument();
@@ -1108,6 +1172,187 @@ namespace ScaleDisplay
             SendRelay(false);
         }
 
+        // ── Split weighing ───────────────────────────────────────────────
+
+        // Restores line break between Gross and Truck split lines collapsed by CSV storage.
+        private static string ExpandNoteForDisplay(string note)
+        {
+            if (note.StartsWith("Gross:") && note.Contains(" Truck:"))
+                note = note.Replace(" Truck:", "\r\nTruck:");
+            return note;
+        }
+
+        private static float SumList(List<float> list)
+        {
+            float total = 0f;
+            foreach (float v in list) total += v;
+            return total;
+        }
+
+        private void UpdateSplitNote()
+        {
+            // Separate any existing user text from the auto-generated split lines
+            string[] lines = txtNote.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            var userLines = new List<string>();
+            foreach (string line in lines)
+            {
+                string t = line.TrimStart();
+                if (!t.StartsWith("Gross:") && !t.StartsWith("Truck:"))
+                    userLines.Add(line);
+            }
+            while (userLines.Count > 0 && string.IsNullOrWhiteSpace(userLines[0]))
+                userLines.RemoveAt(0);
+            while (userLines.Count > 0 && string.IsNullOrWhiteSpace(userLines[userLines.Count - 1]))
+                userLines.RemoveAt(userLines.Count - 1);
+
+            var sb = new StringBuilder();
+
+            if (_splitGrossSections.Count > 0)
+            {
+                sb.Append("Gross:");
+                for (int i = 0; i < _splitGrossSections.Count; i++)
+                {
+                    sb.Append(i == 0 ? "  " : " / ");
+                    sb.Append(FormatKg(_splitGrossSections[i]));
+                }
+                if (_splitGrossSections.Count > 1)
+                    sb.Append("  Total: " + FormatKg(SumList(_splitGrossSections)));
+                sb.Append("\r\n");
+            }
+
+            if (_splitTruckSections.Count > 0)
+            {
+                sb.Append("Truck:");
+                for (int i = 0; i < _splitTruckSections.Count; i++)
+                {
+                    sb.Append(i == 0 ? "  " : " / ");
+                    sb.Append(FormatKg(_splitTruckSections[i]));
+                }
+                if (_splitTruckSections.Count > 1)
+                    sb.Append("  Total: " + FormatKg(SumList(_splitTruckSections)));
+                sb.Append("\r\n");
+            }
+
+            if (userLines.Count > 0)
+            {
+                if (sb.Length > 0) sb.Append("\r\n");
+                sb.Append(string.Join("\r\n", userLines));
+            }
+
+            _splitNoteActive = _splitGrossSections.Count > 0 || _splitTruckSections.Count > 0;
+            txtNote.Text = sb.ToString().TrimEnd('\r', '\n');
+            _displayedNoteLoad = null;
+        }
+
+        private void ckSplitMode_CheckedChanged(object sender, EventArgs e)
+        {
+            if (ckSplitMode.Checked)
+            {
+                if (chkAutoWeigh.Checked)
+                    chkAutoWeigh.Checked = false;
+                chkAutoWeigh.Enabled = false;
+                _splitGrossSections.Clear();
+                _splitTruckSections.Clear();
+                _splitNoteActive = false;
+                btnDeleteGrossSplit.Enabled = false;
+                btnDeleteTruckSplit.Enabled = false;
+                _grossWeightKg = 0f;
+                SetGrossWeightDisplay(0f);
+                _emptyWeightKg = 0f;
+                SetEmptyWeightDisplay(0f);
+                UpdateNet();
+                UpdateBushels();
+            }
+            else
+            {
+                _splitGrossSections.Clear();
+                _splitTruckSections.Clear();
+                UpdateSplitNote(); // strips split lines, keeps user text
+                btnDeleteGrossSplit.Enabled = false;
+                btnDeleteTruckSplit.Enabled = false;
+                numericUpDown1.Value = 0;
+                numericUpDown2.Value = 0;
+                chkAutoWeigh.Enabled = true;
+            }
+            UpdateManualControls();
+        }
+
+        private void btnDeleteGrossSplit_Click(object sender, EventArgs e)
+        {
+            if (_splitGrossSections.Count == 0) return;
+            _splitGrossSections.RemoveAt(_splitGrossSections.Count - 1);
+            float totalKg = SumList(_splitGrossSections);
+            _grossWeightKg = totalKg;
+            SetGrossWeightDisplay(totalKg);
+            UpdateNet();
+            UpdateBushels();
+            UpdateSplitNote();
+            btnDeleteGrossSplit.Enabled = _splitGrossSections.Count > 0;
+            UpdateManualControls();
+        }
+
+        private void btnDeleteTruckSplit_Click(object sender, EventArgs e)
+        {
+            if (_splitTruckSections.Count == 0) return;
+            _splitTruckSections.RemoveAt(_splitTruckSections.Count - 1);
+            float totalKg = SumList(_splitTruckSections);
+            _emptyWeightKg = totalKg;
+            SetEmptyWeightDisplay(totalKg);
+            UpdateNet();
+            UpdateBushels();
+            UpdateSplitNote();
+            btnDeleteTruckSplit.Enabled = _splitTruckSections.Count > 0;
+            UpdateManualControls();
+        }
+
+        private void SplitEntry_Enter(object sender, EventArgs e)
+        {
+            NumericUpDown nud = (NumericUpDown)sender;
+            nud.BeginInvoke(new Action(() => nud.Select(0, nud.Text.Length)));
+        }
+
+        private void NumWeight_Enter(object sender, EventArgs e)
+        {
+            NumericUpDown nud = (NumericUpDown)sender;
+            nud.BeginInvoke(new Action(() => nud.Select(0, nud.Text.Length)));
+        }
+
+        private void btnAddGrossSplit_Click(object sender, EventArgs e)
+        {
+            if (_splitGrossSections.Count >= SplitMaxSections) return;
+            float sectionDisplay = (float)numericUpDown1.Value;
+            if (sectionDisplay <= 0) return;
+            float sectionKg = _currentUnits == "lb" ? sectionDisplay / 2.20462f : sectionDisplay;
+            _splitGrossSections.Add(sectionKg);
+            float totalKg = SumList(_splitGrossSections);
+            _grossWeightKg = totalKg;
+            SetGrossWeightDisplay(totalKg);
+            UpdateNet();
+            UpdateBushels();
+            UpdateSplitNote();
+            numericUpDown1.Value = 0;
+            btnDeleteGrossSplit.Enabled = true;
+            UpdateManualControls();
+        }
+
+        private void btnAddTruckSplit_Click(object sender, EventArgs e)
+        {
+            if (_splitTruckSections.Count >= SplitMaxSections) return;
+            float sectionDisplay = (float)numericUpDown2.Value;
+            if (sectionDisplay <= 0) return;
+            float sectionKg = _currentUnits == "lb" ? sectionDisplay / 2.20462f : sectionDisplay;
+            _splitTruckSections.Add(sectionKg);
+            float totalKg = SumList(_splitTruckSections);
+            _emptyWeightKg = totalKg;
+            SetEmptyWeightDisplay(totalKg);
+            UpdateNet();
+            UpdateBushels();
+            UpdateSplitNote();
+            numericUpDown2.Value = 0;
+            btnDeleteTruckSplit.Enabled = true;
+            UpdateManualControls();
+        }
+
         // ── CSV logging ──────────────────────────────────────────────────
 
         private string GetCsvPath(DateTime date) =>
@@ -1165,11 +1410,17 @@ namespace ScaleDisplay
         {
             bool hasLiveWeight = (CommPort != null && CommPort.IsOpen) || _connectionMode == ConnectionMode.Udp;
             bool autoWeigh = chkAutoWeigh.Checked;
-            // Capture buttons need a live scale reading; manual entry and record work without one
-            btnCaptureGross.Enabled = hasLiveWeight && !autoWeigh;
-            btnCaptureTruck.Enabled = hasLiveWeight && !autoWeigh;
-            numGrossWeight.Enabled = !autoWeigh;
+            bool splitMode = ckSplitMode.Checked;
+            btnCaptureGross.Enabled = hasLiveWeight && !autoWeigh
+                && (!splitMode || _splitGrossSections.Count < SplitMaxSections);
+            btnCaptureTruck.Enabled = hasLiveWeight && !autoWeigh
+                && (!splitMode || _splitTruckSections.Count < SplitMaxSections);
+            numGrossWeight.Enabled = !autoWeigh && !splitMode;
+            numEmptyWeight.Enabled = !splitMode;
             btnManualWeigh.Enabled = !autoWeigh;
+            grpSplit.Enabled = splitMode;
+            btnAddGrossSplit.Enabled = _splitGrossSections.Count < SplitMaxSections;
+            btnAddTruckSplit.Enabled = _splitTruckSections.Count < SplitMaxSections;
         }
 
         private void chkAutoWeigh_CheckedChanged(object sender, EventArgs e)
@@ -1374,7 +1625,7 @@ namespace ScaleDisplay
             if (dgvReport.SelectedRows.Count == 0) { textBox1.Text = ""; _reportDisplayedLoad = null; return; }
             string load = dgvReport.SelectedRows[0].Cells[1].Value?.ToString() ?? "";
             _reportDisplayedLoad = load;
-            textBox1.Text = _reportNotesByLoad.TryGetValue(load, out string note) ? note : "";
+            textBox1.Text = ExpandNoteForDisplay(_reportNotesByLoad.TryGetValue(load, out string note) ? note : "");
         }
 
         private void btnPrint_Click(object sender, EventArgs e)
