@@ -30,6 +30,8 @@ namespace ScaleDisplay
             this.lblConnectionStatus = new System.Windows.Forms.Label();
             this.tabControl = new System.Windows.Forms.TabControl();
             this.tabWeight = new System.Windows.Forms.TabPage();
+            this.lbDailyWeight = new System.Windows.Forms.Label();
+            this.lbDailyBushels = new System.Windows.Forms.Label();
             this.lblWeightValue = new System.Windows.Forms.Label();
             this.btnManualWeigh = new System.Windows.Forms.Button();
             this.lblCrop = new System.Windows.Forms.Label();
@@ -51,8 +53,21 @@ namespace ScaleDisplay
             this.txtNote = new System.Windows.Forms.TextBox();
             this.btnDeleteWeight = new System.Windows.Forms.Button();
             this.btnPrintReceipt = new System.Windows.Forms.Button();
+            this.tabReport = new System.Windows.Forms.TabPage();
+            this.lbTotalBushels = new System.Windows.Forms.Label();
+            this.lbTotalWeight = new System.Windows.Forms.Label();
+            this.label1 = new System.Windows.Forms.Label();
+            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.lblDate = new System.Windows.Forms.Label();
+            this.dtpReport = new System.Windows.Forms.DateTimePicker();
+            this.btnLoadReport = new System.Windows.Forms.Button();
+            this.dgvReport = new System.Windows.Forms.DataGridView();
+            this.btnPrint = new System.Windows.Forms.Button();
             this.tabSettings = new System.Windows.Forms.TabPage();
             this.gbData = new System.Windows.Forms.GroupBox();
+            this.ckLP7515 = new System.Windows.Forms.CheckBox();
+            this.label2 = new System.Windows.Forms.Label();
+            this.cmbBaud = new System.Windows.Forms.ComboBox();
             this.btnConnect = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.lblPort = new System.Windows.Forms.Label();
@@ -68,21 +83,10 @@ namespace ScaleDisplay
             this.grpUnits = new System.Windows.Forms.GroupBox();
             this.rdoImperial = new System.Windows.Forms.RadioButton();
             this.rdoMetric = new System.Windows.Forms.RadioButton();
-            this.tabReport = new System.Windows.Forms.TabPage();
-            this.label1 = new System.Windows.Forms.Label();
-            this.textBox1 = new System.Windows.Forms.TextBox();
-            this.lblDate = new System.Windows.Forms.Label();
-            this.dtpReport = new System.Windows.Forms.DateTimePicker();
-            this.btnLoadReport = new System.Windows.Forms.Button();
-            this.dgvReport = new System.Windows.Forms.DataGridView();
-            this.btnPrint = new System.Windows.Forms.Button();
-            this.label2 = new System.Windows.Forms.Label();
-            this.cmbBaud = new System.Windows.Forms.ComboBox();
-            this.ckLP7515 = new System.Windows.Forms.CheckBox();
-            this.lbTotalWeight = new System.Windows.Forms.Label();
-            this.lbTotalBushels = new System.Windows.Forms.Label();
-            this.lbDailyBushels = new System.Windows.Forms.Label();
-            this.lbDailyWeight = new System.Windows.Forms.Label();
+            this.grpSplit = new System.Windows.Forms.GroupBox();
+            this.ckSplitMode = new System.Windows.Forms.CheckBox();
+            this.btnDeleteGrossSplit = new System.Windows.Forms.Button();
+            this.btnDeleteTruckSplit = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -93,13 +97,14 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numEmptyWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).BeginInit();
+            this.tabReport.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).BeginInit();
             this.tabSettings.SuspendLayout();
             this.gbData.SuspendLayout();
             this.grpAutoWeigh.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).BeginInit();
             this.grpUnits.SuspendLayout();
-            this.tabReport.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).BeginInit();
+            this.grpSplit.SuspendLayout();
             this.SuspendLayout();
             // 
             // lblStability
@@ -261,12 +266,13 @@ namespace ScaleDisplay
             this.tabControl.Location = new System.Drawing.Point(0, 0);
             this.tabControl.Name = "tabControl";
             this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(520, 589);
+            this.tabControl.Size = new System.Drawing.Size(520, 646);
             this.tabControl.TabIndex = 0;
             this.tabControl.SelectedIndexChanged += new System.EventHandler(this.tabControl_SelectedIndexChanged);
             // 
             // tabWeight
             // 
+            this.tabWeight.Controls.Add(this.grpSplit);
             this.tabWeight.Controls.Add(this.lbDailyWeight);
             this.tabWeight.Controls.Add(this.lbDailyBushels);
             this.tabWeight.Controls.Add(this.lblWeightValue);
@@ -293,9 +299,29 @@ namespace ScaleDisplay
             this.tabWeight.Location = new System.Drawing.Point(4, 25);
             this.tabWeight.Name = "tabWeight";
             this.tabWeight.Padding = new System.Windows.Forms.Padding(5);
-            this.tabWeight.Size = new System.Drawing.Size(512, 560);
+            this.tabWeight.Size = new System.Drawing.Size(512, 617);
             this.tabWeight.TabIndex = 0;
             this.tabWeight.Text = "Weight";
+            // 
+            // lbDailyWeight
+            // 
+            this.lbDailyWeight.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbDailyWeight.Location = new System.Drawing.Point(292, 577);
+            this.lbDailyWeight.Name = "lbDailyWeight";
+            this.lbDailyWeight.Size = new System.Drawing.Size(109, 26);
+            this.lbDailyWeight.TabIndex = 26;
+            this.lbDailyWeight.Text = "100,000";
+            this.lbDailyWeight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // lbDailyBushels
+            // 
+            this.lbDailyBushels.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbDailyBushels.Location = new System.Drawing.Point(419, 577);
+            this.lbDailyBushels.Name = "lbDailyBushels";
+            this.lbDailyBushels.Size = new System.Drawing.Size(85, 26);
+            this.lbDailyBushels.TabIndex = 25;
+            this.lbDailyBushels.Text = "100,000";
+            this.lbDailyBushels.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // lblWeightValue
             // 
@@ -322,7 +348,7 @@ namespace ScaleDisplay
             // lblCrop
             // 
             this.lblCrop.AutoSize = true;
-            this.lblCrop.Location = new System.Drawing.Point(159, 266);
+            this.lblCrop.Location = new System.Drawing.Point(7, 275);
             this.lblCrop.Name = "lblCrop";
             this.lblCrop.Size = new System.Drawing.Size(42, 17);
             this.lblCrop.TabIndex = 7;
@@ -330,16 +356,16 @@ namespace ScaleDisplay
             // 
             // cmbCrop
             // 
-            this.cmbCrop.Location = new System.Drawing.Point(207, 262);
+            this.cmbCrop.Location = new System.Drawing.Point(88, 271);
             this.cmbCrop.Name = "cmbCrop";
-            this.cmbCrop.Size = new System.Drawing.Size(155, 24);
+            this.cmbCrop.Size = new System.Drawing.Size(136, 24);
             this.cmbCrop.TabIndex = 8;
             this.cmbCrop.SelectedIndexChanged += new System.EventHandler(this.cmbCrop_SelectedIndexChanged);
             // 
             // lblBushelWeightLabel
             // 
             this.lblBushelWeightLabel.AutoSize = true;
-            this.lblBushelWeightLabel.Location = new System.Drawing.Point(390, 266);
+            this.lblBushelWeightLabel.Location = new System.Drawing.Point(7, 305);
             this.lblBushelWeightLabel.Name = "lblBushelWeightLabel";
             this.lblBushelWeightLabel.Size = new System.Drawing.Size(43, 17);
             this.lblBushelWeightLabel.TabIndex = 9;
@@ -347,7 +373,7 @@ namespace ScaleDisplay
             // 
             // numBushelWeight
             // 
-            this.numBushelWeight.Location = new System.Drawing.Point(439, 263);
+            this.numBushelWeight.Location = new System.Drawing.Point(88, 302);
             this.numBushelWeight.Maximum = new decimal(new int[] {
             200,
             0,
@@ -366,7 +392,7 @@ namespace ScaleDisplay
             // lblEmptyLabel
             // 
             this.lblEmptyLabel.AutoSize = true;
-            this.lblEmptyLabel.Location = new System.Drawing.Point(11, 176);
+            this.lblEmptyLabel.Location = new System.Drawing.Point(7, 176);
             this.lblEmptyLabel.Name = "lblEmptyLabel";
             this.lblEmptyLabel.Size = new System.Drawing.Size(73, 17);
             this.lblEmptyLabel.TabIndex = 13;
@@ -379,7 +405,7 @@ namespace ScaleDisplay
             0,
             0,
             0});
-            this.numEmptyWeight.Location = new System.Drawing.Point(92, 173);
+            this.numEmptyWeight.Location = new System.Drawing.Point(88, 173);
             this.numEmptyWeight.Maximum = new decimal(new int[] {
             200000,
             0,
@@ -404,7 +430,7 @@ namespace ScaleDisplay
             // lblGrossLabel
             // 
             this.lblGrossLabel.AutoSize = true;
-            this.lblGrossLabel.Location = new System.Drawing.Point(11, 129);
+            this.lblGrossLabel.Location = new System.Drawing.Point(7, 129);
             this.lblGrossLabel.Name = "lblGrossLabel";
             this.lblGrossLabel.Size = new System.Drawing.Size(75, 17);
             this.lblGrossLabel.TabIndex = 22;
@@ -417,7 +443,7 @@ namespace ScaleDisplay
             0,
             0,
             0});
-            this.numGrossWeight.Location = new System.Drawing.Point(92, 126);
+            this.numGrossWeight.Location = new System.Drawing.Point(88, 126);
             this.numGrossWeight.Maximum = new decimal(new int[] {
             999999,
             0,
@@ -442,7 +468,7 @@ namespace ScaleDisplay
             // lblNetLabel
             // 
             this.lblNetLabel.AutoSize = true;
-            this.lblNetLabel.Location = new System.Drawing.Point(11, 222);
+            this.lblNetLabel.Location = new System.Drawing.Point(7, 215);
             this.lblNetLabel.Name = "lblNetLabel";
             this.lblNetLabel.Size = new System.Drawing.Size(59, 17);
             this.lblNetLabel.TabIndex = 15;
@@ -452,7 +478,7 @@ namespace ScaleDisplay
             // 
             this.lblNetValue.AutoSize = true;
             this.lblNetValue.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
-            this.lblNetValue.Location = new System.Drawing.Point(92, 220);
+            this.lblNetValue.Location = new System.Drawing.Point(88, 213);
             this.lblNetValue.Name = "lblNetValue";
             this.lblNetValue.Size = new System.Drawing.Size(27, 20);
             this.lblNetValue.TabIndex = 16;
@@ -461,7 +487,7 @@ namespace ScaleDisplay
             // lblBushels
             // 
             this.lblBushels.AutoSize = true;
-            this.lblBushels.Location = new System.Drawing.Point(11, 266);
+            this.lblBushels.Location = new System.Drawing.Point(7, 245);
             this.lblBushels.Name = "lblBushels";
             this.lblBushels.Size = new System.Drawing.Size(62, 17);
             this.lblBushels.TabIndex = 11;
@@ -471,7 +497,7 @@ namespace ScaleDisplay
             // 
             this.lblBushelsValue.AutoSize = true;
             this.lblBushelsValue.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
-            this.lblBushelsValue.Location = new System.Drawing.Point(92, 264);
+            this.lblBushelsValue.Location = new System.Drawing.Point(88, 243);
             this.lblBushelsValue.Name = "lblBushelsValue";
             this.lblBushelsValue.Size = new System.Drawing.Size(27, 20);
             this.lblBushelsValue.TabIndex = 12;
@@ -482,7 +508,7 @@ namespace ScaleDisplay
             this.dgvTodayWeights.BackgroundColor = System.Drawing.SystemColors.Window;
             this.dgvTodayWeights.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.dgvTodayWeights.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvTodayWeights.Location = new System.Drawing.Point(8, 350);
+            this.dgvTodayWeights.Location = new System.Drawing.Point(8, 402);
             this.dgvTodayWeights.Name = "dgvTodayWeights";
             this.dgvTodayWeights.Size = new System.Drawing.Size(496, 170);
             this.dgvTodayWeights.TabIndex = 6;
@@ -491,7 +517,7 @@ namespace ScaleDisplay
             // lblNote
             // 
             this.lblNote.AutoSize = true;
-            this.lblNote.Location = new System.Drawing.Point(11, 292);
+            this.lblNote.Location = new System.Drawing.Point(7, 333);
             this.lblNote.Name = "lblNote";
             this.lblNote.Size = new System.Drawing.Size(42, 17);
             this.lblNote.TabIndex = 19;
@@ -499,16 +525,16 @@ namespace ScaleDisplay
             // 
             // txtNote
             // 
-            this.txtNote.Location = new System.Drawing.Point(55, 292);
+            this.txtNote.Location = new System.Drawing.Point(55, 333);
             this.txtNote.Multiline = true;
             this.txtNote.Name = "txtNote";
             this.txtNote.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtNote.Size = new System.Drawing.Size(449, 52);
+            this.txtNote.Size = new System.Drawing.Size(449, 63);
             this.txtNote.TabIndex = 20;
             // 
             // btnDeleteWeight
             // 
-            this.btnDeleteWeight.Location = new System.Drawing.Point(14, 526);
+            this.btnDeleteWeight.Location = new System.Drawing.Point(14, 578);
             this.btnDeleteWeight.Name = "btnDeleteWeight";
             this.btnDeleteWeight.Size = new System.Drawing.Size(130, 26);
             this.btnDeleteWeight.TabIndex = 17;
@@ -517,12 +543,114 @@ namespace ScaleDisplay
             // 
             // btnPrintReceipt
             // 
-            this.btnPrintReceipt.Location = new System.Drawing.Point(150, 526);
+            this.btnPrintReceipt.Location = new System.Drawing.Point(150, 578);
             this.btnPrintReceipt.Name = "btnPrintReceipt";
             this.btnPrintReceipt.Size = new System.Drawing.Size(130, 26);
             this.btnPrintReceipt.TabIndex = 18;
             this.btnPrintReceipt.Text = "Print Receipt";
             this.btnPrintReceipt.Click += new System.EventHandler(this.btnPrintReceipt_Click);
+            // 
+            // tabReport
+            // 
+            this.tabReport.Controls.Add(this.lbTotalBushels);
+            this.tabReport.Controls.Add(this.lbTotalWeight);
+            this.tabReport.Controls.Add(this.label1);
+            this.tabReport.Controls.Add(this.textBox1);
+            this.tabReport.Controls.Add(this.lblDate);
+            this.tabReport.Controls.Add(this.dtpReport);
+            this.tabReport.Controls.Add(this.btnLoadReport);
+            this.tabReport.Controls.Add(this.dgvReport);
+            this.tabReport.Controls.Add(this.btnPrint);
+            this.tabReport.Location = new System.Drawing.Point(4, 25);
+            this.tabReport.Name = "tabReport";
+            this.tabReport.Padding = new System.Windows.Forms.Padding(5);
+            this.tabReport.Size = new System.Drawing.Size(512, 560);
+            this.tabReport.TabIndex = 2;
+            this.tabReport.Text = "Report";
+            // 
+            // lbTotalBushels
+            // 
+            this.lbTotalBushels.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbTotalBushels.Location = new System.Drawing.Point(419, 529);
+            this.lbTotalBushels.Name = "lbTotalBushels";
+            this.lbTotalBushels.Size = new System.Drawing.Size(85, 26);
+            this.lbTotalBushels.TabIndex = 24;
+            this.lbTotalBushels.Text = "100,000";
+            this.lbTotalBushels.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // lbTotalWeight
+            // 
+            this.lbTotalWeight.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lbTotalWeight.Location = new System.Drawing.Point(306, 529);
+            this.lbTotalWeight.Name = "lbTotalWeight";
+            this.lbTotalWeight.Size = new System.Drawing.Size(107, 26);
+            this.lbTotalWeight.TabIndex = 23;
+            this.lbTotalWeight.Text = "100,000";
+            this.lbTotalWeight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(8, 49);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(42, 17);
+            this.label1.TabIndex = 21;
+            this.label1.Text = "Note:";
+            // 
+            // textBox1
+            // 
+            this.textBox1.Location = new System.Drawing.Point(55, 49);
+            this.textBox1.Multiline = true;
+            this.textBox1.Name = "textBox1";
+            this.textBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.textBox1.Size = new System.Drawing.Size(449, 52);
+            this.textBox1.TabIndex = 22;
+            // 
+            // lblDate
+            // 
+            this.lblDate.AutoSize = true;
+            this.lblDate.Location = new System.Drawing.Point(8, 13);
+            this.lblDate.Name = "lblDate";
+            this.lblDate.Size = new System.Drawing.Size(42, 17);
+            this.lblDate.TabIndex = 0;
+            this.lblDate.Text = "Date:";
+            // 
+            // dtpReport
+            // 
+            this.dtpReport.Format = System.Windows.Forms.DateTimePickerFormat.Short;
+            this.dtpReport.Location = new System.Drawing.Point(50, 8);
+            this.dtpReport.Name = "dtpReport";
+            this.dtpReport.Size = new System.Drawing.Size(130, 23);
+            this.dtpReport.TabIndex = 0;
+            // 
+            // btnLoadReport
+            // 
+            this.btnLoadReport.Location = new System.Drawing.Point(188, 7);
+            this.btnLoadReport.Name = "btnLoadReport";
+            this.btnLoadReport.Size = new System.Drawing.Size(75, 26);
+            this.btnLoadReport.TabIndex = 1;
+            this.btnLoadReport.Text = "Load";
+            this.btnLoadReport.Click += new System.EventHandler(this.btnLoadReport_Click);
+            // 
+            // dgvReport
+            // 
+            this.dgvReport.BackgroundColor = System.Drawing.SystemColors.Window;
+            this.dgvReport.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.dgvReport.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dgvReport.Location = new System.Drawing.Point(8, 107);
+            this.dgvReport.Name = "dgvReport";
+            this.dgvReport.Size = new System.Drawing.Size(496, 419);
+            this.dgvReport.TabIndex = 2;
+            this.dgvReport.SelectionChanged += new System.EventHandler(this.dgvReport_SelectionChanged);
+            // 
+            // btnPrint
+            // 
+            this.btnPrint.Location = new System.Drawing.Point(429, 8);
+            this.btnPrint.Name = "btnPrint";
+            this.btnPrint.Size = new System.Drawing.Size(75, 25);
+            this.btnPrint.TabIndex = 3;
+            this.btnPrint.Text = "Print...";
+            this.btnPrint.Click += new System.EventHandler(this.btnPrint_Click);
             // 
             // tabSettings
             // 
@@ -557,6 +685,43 @@ namespace ScaleDisplay
             this.gbData.TabStop = false;
             this.gbData.Text = "Data Source";
             this.gbData.Paint += new System.Windows.Forms.PaintEventHandler(this.gbData_Paint);
+            // 
+            // ckLP7515
+            // 
+            this.ckLP7515.AutoSize = true;
+            this.ckLP7515.Location = new System.Drawing.Point(15, 66);
+            this.ckLP7515.Name = "ckLP7515";
+            this.ckLP7515.Size = new System.Drawing.Size(76, 21);
+            this.ckLP7515.TabIndex = 103;
+            this.ckLP7515.Text = "LP7515";
+            this.ckLP7515.UseVisualStyleBackColor = true;
+            this.ckLP7515.CheckedChanged += new System.EventHandler(this.ckLP7515_CheckedChanged);
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(142, 68);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(45, 17);
+            this.label2.TabIndex = 101;
+            this.label2.Text = "Baud:";
+            // 
+            // cmbBaud
+            // 
+            this.cmbBaud.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbBaud.Items.AddRange(new object[] {
+            "1200",
+            "2400",
+            "4800",
+            "9600",
+            "19200",
+            "38400",
+            "57600",
+            "115200"});
+            this.cmbBaud.Location = new System.Drawing.Point(216, 64);
+            this.cmbBaud.Name = "cmbBaud";
+            this.cmbBaud.Size = new System.Drawing.Size(85, 24);
+            this.cmbBaud.TabIndex = 102;
             // 
             // btnConnect
             // 
@@ -730,170 +895,53 @@ namespace ScaleDisplay
             this.rdoMetric.Text = "Metric (kg)";
             this.rdoMetric.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
             // 
-            // tabReport
+            // grpSplit
             // 
-            this.tabReport.Controls.Add(this.lbTotalBushels);
-            this.tabReport.Controls.Add(this.lbTotalWeight);
-            this.tabReport.Controls.Add(this.label1);
-            this.tabReport.Controls.Add(this.textBox1);
-            this.tabReport.Controls.Add(this.lblDate);
-            this.tabReport.Controls.Add(this.dtpReport);
-            this.tabReport.Controls.Add(this.btnLoadReport);
-            this.tabReport.Controls.Add(this.dgvReport);
-            this.tabReport.Controls.Add(this.btnPrint);
-            this.tabReport.Location = new System.Drawing.Point(4, 25);
-            this.tabReport.Name = "tabReport";
-            this.tabReport.Padding = new System.Windows.Forms.Padding(5);
-            this.tabReport.Size = new System.Drawing.Size(512, 560);
-            this.tabReport.TabIndex = 2;
-            this.tabReport.Text = "Report";
+            this.grpSplit.Controls.Add(this.btnDeleteTruckSplit);
+            this.grpSplit.Controls.Add(this.btnDeleteGrossSplit);
+            this.grpSplit.Controls.Add(this.ckSplitMode);
+            this.grpSplit.Location = new System.Drawing.Point(233, 209);
+            this.grpSplit.Name = "grpSplit";
+            this.grpSplit.Size = new System.Drawing.Size(271, 113);
+            this.grpSplit.TabIndex = 27;
+            this.grpSplit.TabStop = false;
+            this.grpSplit.Text = "Split Weigh";
             // 
-            // label1
+            // ckSplitMode
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(8, 49);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(42, 17);
-            this.label1.TabIndex = 21;
-            this.label1.Text = "Note:";
+            this.ckSplitMode.AutoSize = true;
+            this.ckSplitMode.Location = new System.Drawing.Point(15, 48);
+            this.ckSplitMode.Name = "ckSplitMode";
+            this.ckSplitMode.Size = new System.Drawing.Size(98, 21);
+            this.ckSplitMode.TabIndex = 0;
+            this.ckSplitMode.Text = "Split Weigh";
+            this.ckSplitMode.UseVisualStyleBackColor = true;
             // 
-            // textBox1
+            // btnDeleteGrossSplit
             // 
-            this.textBox1.Location = new System.Drawing.Point(55, 49);
-            this.textBox1.Multiline = true;
-            this.textBox1.Name = "textBox1";
-            this.textBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.textBox1.Size = new System.Drawing.Size(449, 52);
-            this.textBox1.TabIndex = 22;
+            this.btnDeleteGrossSplit.Enabled = false;
+            this.btnDeleteGrossSplit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnDeleteGrossSplit.Location = new System.Drawing.Point(133, 14);
+            this.btnDeleteGrossSplit.Name = "btnDeleteGrossSplit";
+            this.btnDeleteGrossSplit.Size = new System.Drawing.Size(123, 39);
+            this.btnDeleteGrossSplit.TabIndex = 22;
+            this.btnDeleteGrossSplit.Text = "Delete Gross Split";
             // 
-            // lblDate
+            // btnDeleteTruckSplit
             // 
-            this.lblDate.AutoSize = true;
-            this.lblDate.Location = new System.Drawing.Point(8, 13);
-            this.lblDate.Name = "lblDate";
-            this.lblDate.Size = new System.Drawing.Size(42, 17);
-            this.lblDate.TabIndex = 0;
-            this.lblDate.Text = "Date:";
-            // 
-            // dtpReport
-            // 
-            this.dtpReport.Format = System.Windows.Forms.DateTimePickerFormat.Short;
-            this.dtpReport.Location = new System.Drawing.Point(50, 8);
-            this.dtpReport.Name = "dtpReport";
-            this.dtpReport.Size = new System.Drawing.Size(130, 23);
-            this.dtpReport.TabIndex = 0;
-            // 
-            // btnLoadReport
-            // 
-            this.btnLoadReport.Location = new System.Drawing.Point(188, 7);
-            this.btnLoadReport.Name = "btnLoadReport";
-            this.btnLoadReport.Size = new System.Drawing.Size(75, 26);
-            this.btnLoadReport.TabIndex = 1;
-            this.btnLoadReport.Text = "Load";
-            this.btnLoadReport.Click += new System.EventHandler(this.btnLoadReport_Click);
-            // 
-            // dgvReport
-            // 
-            this.dgvReport.BackgroundColor = System.Drawing.SystemColors.Window;
-            this.dgvReport.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.dgvReport.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvReport.Location = new System.Drawing.Point(8, 107);
-            this.dgvReport.Name = "dgvReport";
-            this.dgvReport.Size = new System.Drawing.Size(496, 419);
-            this.dgvReport.TabIndex = 2;
-            this.dgvReport.SelectionChanged += new System.EventHandler(this.dgvReport_SelectionChanged);
-            // 
-            // btnPrint
-            // 
-            this.btnPrint.Location = new System.Drawing.Point(429, 8);
-            this.btnPrint.Name = "btnPrint";
-            this.btnPrint.Size = new System.Drawing.Size(75, 25);
-            this.btnPrint.TabIndex = 3;
-            this.btnPrint.Text = "Print...";
-            this.btnPrint.Click += new System.EventHandler(this.btnPrint_Click);
-            // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(142, 68);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(45, 17);
-            this.label2.TabIndex = 101;
-            this.label2.Text = "Baud:";
-            // 
-            // cmbBaud
-            // 
-            this.cmbBaud.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbBaud.Items.AddRange(new object[] {
-            "1200",
-            "2400",
-            "4800",
-            "9600",
-            "19200",
-            "38400",
-            "57600",
-            "115200"});
-            this.cmbBaud.Location = new System.Drawing.Point(216, 64);
-            this.cmbBaud.Name = "cmbBaud";
-            this.cmbBaud.Size = new System.Drawing.Size(85, 24);
-            this.cmbBaud.TabIndex = 102;
-            // 
-            // ckLP7515
-            // 
-            this.ckLP7515.AutoSize = true;
-            this.ckLP7515.Location = new System.Drawing.Point(15, 66);
-            this.ckLP7515.Name = "ckLP7515";
-            this.ckLP7515.Size = new System.Drawing.Size(76, 21);
-            this.ckLP7515.TabIndex = 103;
-            this.ckLP7515.Text = "LP7515";
-            this.ckLP7515.UseVisualStyleBackColor = true;
-            this.ckLP7515.CheckedChanged += new System.EventHandler(this.ckLP7515_CheckedChanged);
-            // 
-            // lbTotalWeight
-            // 
-            this.lbTotalWeight.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbTotalWeight.Location = new System.Drawing.Point(306, 529);
-            this.lbTotalWeight.Name = "lbTotalWeight";
-            this.lbTotalWeight.Size = new System.Drawing.Size(107, 26);
-            this.lbTotalWeight.TabIndex = 23;
-            this.lbTotalWeight.Text = "100,000";
-            this.lbTotalWeight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lbTotalBushels
-            // 
-            this.lbTotalBushels.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbTotalBushels.Location = new System.Drawing.Point(419, 529);
-            this.lbTotalBushels.Name = "lbTotalBushels";
-            this.lbTotalBushels.Size = new System.Drawing.Size(85, 26);
-            this.lbTotalBushels.TabIndex = 24;
-            this.lbTotalBushels.Text = "100,000";
-            this.lbTotalBushels.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lbDailyBushels
-            // 
-            this.lbDailyBushels.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbDailyBushels.Location = new System.Drawing.Point(419, 525);
-            this.lbDailyBushels.Name = "lbDailyBushels";
-            this.lbDailyBushels.Size = new System.Drawing.Size(85, 26);
-            this.lbDailyBushels.TabIndex = 25;
-            this.lbDailyBushels.Text = "100,000";
-            this.lbDailyBushels.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lbDailyWeight
-            // 
-            this.lbDailyWeight.Font = new System.Drawing.Font("Microsoft Sans Serif", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbDailyWeight.Location = new System.Drawing.Point(292, 525);
-            this.lbDailyWeight.Name = "lbDailyWeight";
-            this.lbDailyWeight.Size = new System.Drawing.Size(109, 26);
-            this.lbDailyWeight.TabIndex = 26;
-            this.lbDailyWeight.Text = "100,000";
-            this.lbDailyWeight.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.btnDeleteTruckSplit.Enabled = false;
+            this.btnDeleteTruckSplit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnDeleteTruckSplit.Location = new System.Drawing.Point(133, 66);
+            this.btnDeleteTruckSplit.Name = "btnDeleteTruckSplit";
+            this.btnDeleteTruckSplit.Size = new System.Drawing.Size(123, 39);
+            this.btnDeleteTruckSplit.TabIndex = 23;
+            this.btnDeleteTruckSplit.Text = "Delete Truck Split";
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(520, 589);
+            this.ClientSize = new System.Drawing.Size(520, 646);
             this.Controls.Add(this.tabControl);
             this.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
@@ -915,6 +963,9 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numEmptyWeight)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dgvTodayWeights)).EndInit();
+            this.tabReport.ResumeLayout(false);
+            this.tabReport.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).EndInit();
             this.tabSettings.ResumeLayout(false);
             this.gbData.ResumeLayout(false);
             this.gbData.PerformLayout();
@@ -923,9 +974,8 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).EndInit();
             this.grpUnits.ResumeLayout(false);
             this.grpUnits.PerformLayout();
-            this.tabReport.ResumeLayout(false);
-            this.tabReport.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).EndInit();
+            this.grpSplit.ResumeLayout(false);
+            this.grpSplit.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -1003,5 +1053,9 @@ namespace ScaleDisplay
         private Label lbTotalBushels;
         private Label lbTotalWeight;
         private Label lbDailyWeight;
+        private GroupBox grpSplit;
+        private Button btnDeleteTruckSplit;
+        private Button btnDeleteGrossSplit;
+        private CheckBox ckSplitMode;
     }
 }
