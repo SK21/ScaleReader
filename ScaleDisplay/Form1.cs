@@ -1511,6 +1511,15 @@ namespace ScaleDisplay
                 string[] parts = File.ReadAllText(AutoWeighSettingsFile).Split(',');
                 if (parts.Length < 4) return;
 
+                // Set units first so ValueChanged handlers convert correctly when controls are loaded
+                if (parts.Length >= 5 && (parts[4] == "lb" || parts[4] == "kg"))
+                {
+                    _manualUnits = parts[4];
+                    _currentUnits = _manualUnits;
+                    rdoMetric.Checked = _manualUnits == "kg";
+                    rdoImperial.Checked = _manualUnits == "lb";
+                }
+
                 if (int.TryParse(parts[0], out int en))
                     chkAutoWeigh.Checked = en == 1;
                 if (decimal.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal minW))
@@ -1519,13 +1528,6 @@ namespace ScaleDisplay
                     numStability.Value = Math.Max(numStability.Minimum, Math.Min(numStability.Maximum, stab));
                 if (decimal.TryParse(parts[3], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal sig))
                     numSignal.Value = Math.Max(numSignal.Minimum, Math.Min(numSignal.Maximum, sig));
-                if (parts.Length >= 5 && (parts[4] == "lb" || parts[4] == "kg"))
-                {
-                    _manualUnits = parts[4];
-                    _currentUnits = _manualUnits;
-                    rdoMetric.Checked = _manualUnits == "kg";
-                    rdoImperial.Checked = _manualUnits == "lb";
-                }
                 if (parts.Length >= 6 && decimal.TryParse(parts[5], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal interval))
                     numInterval.Value = Math.Max(numInterval.Minimum, Math.Min(numInterval.Maximum, interval));
                 if (parts.Length >= 7 && decimal.TryParse(parts[6], NumberStyles.Any, CultureInfo.InvariantCulture, out decimal tol))
