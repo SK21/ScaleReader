@@ -31,14 +31,20 @@ namespace ScaleDisplay
             this.tabControl = new System.Windows.Forms.TabControl();
             this.tabWeight = new System.Windows.Forms.TabPage();
             this.grpSplit = new System.Windows.Forms.GroupBox();
+            this.btnAddGrossSplit = new System.Windows.Forms.Button();
+            this.btnAddTruckSplit = new System.Windows.Forms.Button();
+            this.label4 = new System.Windows.Forms.Label();
+            this.numericUpDown2 = new System.Windows.Forms.NumericUpDown();
+            this.label3 = new System.Windows.Forms.Label();
+            this.numericUpDown1 = new System.Windows.Forms.NumericUpDown();
             this.btnDeleteTruckSplit = new System.Windows.Forms.Button();
             this.btnDeleteGrossSplit = new System.Windows.Forms.Button();
-            this.ckSplitMode = new System.Windows.Forms.CheckBox();
             this.lbDailyWeight = new System.Windows.Forms.Label();
             this.lbDailyBushels = new System.Windows.Forms.Label();
             this.lblWeightValue = new System.Windows.Forms.Label();
             this.btnManualWeigh = new System.Windows.Forms.Button();
             this.lblCrop = new System.Windows.Forms.Label();
+            this.ckSplitMode = new System.Windows.Forms.CheckBox();
             this.cmbCrop = new System.Windows.Forms.ComboBox();
             this.lblBushelWeightLabel = new System.Windows.Forms.Label();
             this.numBushelWeight = new System.Windows.Forms.NumericUpDown();
@@ -87,12 +93,6 @@ namespace ScaleDisplay
             this.grpUnits = new System.Windows.Forms.GroupBox();
             this.rdoImperial = new System.Windows.Forms.RadioButton();
             this.rdoMetric = new System.Windows.Forms.RadioButton();
-            this.label3 = new System.Windows.Forms.Label();
-            this.numericUpDown1 = new System.Windows.Forms.NumericUpDown();
-            this.label4 = new System.Windows.Forms.Label();
-            this.numericUpDown2 = new System.Windows.Forms.NumericUpDown();
-            this.btnAddTruckSplit = new System.Windows.Forms.Button();
-            this.btnAddGrossSplit = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -100,6 +100,8 @@ namespace ScaleDisplay
             this.tabControl.SuspendLayout();
             this.tabWeight.SuspendLayout();
             this.grpSplit.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown2)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numBushelWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numEmptyWeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).BeginInit();
@@ -111,8 +113,6 @@ namespace ScaleDisplay
             this.grpAutoWeigh.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).BeginInit();
             this.grpUnits.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown2)).BeginInit();
             this.SuspendLayout();
             // 
             // lblStability
@@ -329,6 +329,84 @@ namespace ScaleDisplay
             this.grpSplit.TabStop = false;
             this.grpSplit.Text = "Split Weigh";
             // 
+            // btnAddGrossSplit
+            // 
+            this.btnAddGrossSplit.Enabled = false;
+            this.btnAddGrossSplit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnAddGrossSplit.Location = new System.Drawing.Point(186, 18);
+            this.btnAddGrossSplit.Name = "btnAddGrossSplit";
+            this.btnAddGrossSplit.Size = new System.Drawing.Size(55, 39);
+            this.btnAddGrossSplit.TabIndex = 29;
+            this.btnAddGrossSplit.Text = "Add";
+            this.btnAddGrossSplit.Click += new System.EventHandler(this.btnAddGrossSplit_Click);
+            // 
+            // btnAddTruckSplit
+            // 
+            this.btnAddTruckSplit.Enabled = false;
+            this.btnAddTruckSplit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnAddTruckSplit.Location = new System.Drawing.Point(186, 63);
+            this.btnAddTruckSplit.Name = "btnAddTruckSplit";
+            this.btnAddTruckSplit.Size = new System.Drawing.Size(55, 39);
+            this.btnAddTruckSplit.TabIndex = 28;
+            this.btnAddTruckSplit.Text = "Add";
+            this.btnAddTruckSplit.Click += new System.EventHandler(this.btnAddTruckSplit_Click);
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(4, 74);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(73, 17);
+            this.label4.TabIndex = 26;
+            this.label4.Text = "Truck (lb):";
+            // 
+            // numericUpDown2
+            // 
+            this.numericUpDown2.Increment = new decimal(new int[] {
+            10,
+            0,
+            0,
+            0});
+            this.numericUpDown2.Location = new System.Drawing.Point(85, 71);
+            this.numericUpDown2.Maximum = new decimal(new int[] {
+            200000,
+            0,
+            0,
+            0});
+            this.numericUpDown2.Name = "numericUpDown2";
+            this.numericUpDown2.Size = new System.Drawing.Size(95, 23);
+            this.numericUpDown2.TabIndex = 27;
+            this.numericUpDown2.ThousandsSeparator = true;
+            this.numericUpDown2.Enter += new System.EventHandler(this.SplitEntry_Enter);
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(4, 29);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(75, 17);
+            this.label3.TabIndex = 24;
+            this.label3.Text = "Gross (lb):";
+            // 
+            // numericUpDown1
+            // 
+            this.numericUpDown1.Increment = new decimal(new int[] {
+            10,
+            0,
+            0,
+            0});
+            this.numericUpDown1.Location = new System.Drawing.Point(85, 26);
+            this.numericUpDown1.Maximum = new decimal(new int[] {
+            999999,
+            0,
+            0,
+            0});
+            this.numericUpDown1.Name = "numericUpDown1";
+            this.numericUpDown1.Size = new System.Drawing.Size(95, 23);
+            this.numericUpDown1.TabIndex = 25;
+            this.numericUpDown1.ThousandsSeparator = true;
+            this.numericUpDown1.Enter += new System.EventHandler(this.SplitEntry_Enter);
+            // 
             // btnDeleteTruckSplit
             // 
             this.btnDeleteTruckSplit.Enabled = false;
@@ -350,17 +428,6 @@ namespace ScaleDisplay
             this.btnDeleteGrossSplit.TabIndex = 22;
             this.btnDeleteGrossSplit.Text = "Delete";
             this.btnDeleteGrossSplit.Click += new System.EventHandler(this.btnDeleteGrossSplit_Click);
-            // 
-            // ckSplitMode
-            // 
-            this.ckSplitMode.AutoSize = true;
-            this.ckSplitMode.Location = new System.Drawing.Point(352, 182);
-            this.ckSplitMode.Name = "ckSplitMode";
-            this.ckSplitMode.Size = new System.Drawing.Size(98, 21);
-            this.ckSplitMode.TabIndex = 0;
-            this.ckSplitMode.Text = "Split Weigh";
-            this.ckSplitMode.UseVisualStyleBackColor = true;
-            this.ckSplitMode.CheckedChanged += new System.EventHandler(this.ckSplitMode_CheckedChanged);
             // 
             // lbDailyWeight
             // 
@@ -413,6 +480,17 @@ namespace ScaleDisplay
             this.lblCrop.TabIndex = 7;
             this.lblCrop.Text = "Crop:";
             // 
+            // ckSplitMode
+            // 
+            this.ckSplitMode.AutoSize = true;
+            this.ckSplitMode.Location = new System.Drawing.Point(352, 182);
+            this.ckSplitMode.Name = "ckSplitMode";
+            this.ckSplitMode.Size = new System.Drawing.Size(98, 21);
+            this.ckSplitMode.TabIndex = 0;
+            this.ckSplitMode.Text = "Split Weigh";
+            this.ckSplitMode.UseVisualStyleBackColor = true;
+            this.ckSplitMode.CheckedChanged += new System.EventHandler(this.ckSplitMode_CheckedChanged);
+            // 
             // cmbCrop
             // 
             this.cmbCrop.Location = new System.Drawing.Point(88, 271);
@@ -438,7 +516,6 @@ namespace ScaleDisplay
             0,
             0,
             0});
-            this.numBushelWeight.Enter += new System.EventHandler(this.NumWeight_Enter);
             this.numBushelWeight.Name = "numBushelWeight";
             this.numBushelWeight.Size = new System.Drawing.Size(65, 23);
             this.numBushelWeight.TabIndex = 10;
@@ -448,6 +525,7 @@ namespace ScaleDisplay
             0,
             0});
             this.numBushelWeight.ValueChanged += new System.EventHandler(this.numBushelWeight_ValueChanged);
+            this.numBushelWeight.Enter += new System.EventHandler(this.NumWeight_Enter);
             // 
             // lblEmptyLabel
             // 
@@ -471,12 +549,12 @@ namespace ScaleDisplay
             0,
             0,
             0});
-            this.numEmptyWeight.Enter += new System.EventHandler(this.NumWeight_Enter);
             this.numEmptyWeight.Name = "numEmptyWeight";
             this.numEmptyWeight.Size = new System.Drawing.Size(95, 23);
             this.numEmptyWeight.TabIndex = 14;
             this.numEmptyWeight.ThousandsSeparator = true;
             this.numEmptyWeight.ValueChanged += new System.EventHandler(this.numEmptyWeight_ValueChanged);
+            this.numEmptyWeight.Enter += new System.EventHandler(this.NumWeight_Enter);
             // 
             // btnCaptureTruck
             // 
@@ -510,12 +588,12 @@ namespace ScaleDisplay
             0,
             0,
             0});
-            this.numGrossWeight.Enter += new System.EventHandler(this.NumWeight_Enter);
             this.numGrossWeight.Name = "numGrossWeight";
             this.numGrossWeight.Size = new System.Drawing.Size(95, 23);
             this.numGrossWeight.TabIndex = 23;
             this.numGrossWeight.ThousandsSeparator = true;
             this.numGrossWeight.ValueChanged += new System.EventHandler(this.numGrossWeight_ValueChanged);
+            this.numGrossWeight.Enter += new System.EventHandler(this.NumWeight_Enter);
             // 
             // btnCaptureGross
             // 
@@ -957,84 +1035,6 @@ namespace ScaleDisplay
             this.rdoMetric.Text = "Metric (kg)";
             this.rdoMetric.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
             // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(4, 29);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(75, 17);
-            this.label3.TabIndex = 24;
-            this.label3.Text = "Gross (lb):";
-            // 
-            // numericUpDown1
-            // 
-            this.numericUpDown1.Increment = new decimal(new int[] {
-            10,
-            0,
-            0,
-            0});
-            this.numericUpDown1.Location = new System.Drawing.Point(85, 26);
-            this.numericUpDown1.Maximum = new decimal(new int[] {
-            999999,
-            0,
-            0,
-            0});
-            this.numericUpDown1.Name = "numericUpDown1";
-            this.numericUpDown1.Size = new System.Drawing.Size(95, 23);
-            this.numericUpDown1.TabIndex = 25;
-            this.numericUpDown1.ThousandsSeparator = true;
-            this.numericUpDown1.Enter += new System.EventHandler(this.SplitEntry_Enter);
-            // 
-            // label4
-            // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(4, 74);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(73, 17);
-            this.label4.TabIndex = 26;
-            this.label4.Text = "Truck (lb):";
-            // 
-            // numericUpDown2
-            // 
-            this.numericUpDown2.Increment = new decimal(new int[] {
-            10,
-            0,
-            0,
-            0});
-            this.numericUpDown2.Location = new System.Drawing.Point(85, 71);
-            this.numericUpDown2.Maximum = new decimal(new int[] {
-            200000,
-            0,
-            0,
-            0});
-            this.numericUpDown2.Name = "numericUpDown2";
-            this.numericUpDown2.Size = new System.Drawing.Size(95, 23);
-            this.numericUpDown2.TabIndex = 27;
-            this.numericUpDown2.ThousandsSeparator = true;
-            this.numericUpDown2.Enter += new System.EventHandler(this.SplitEntry_Enter);
-            // 
-            // btnAddTruckSplit
-            // 
-            this.btnAddTruckSplit.Enabled = false;
-            this.btnAddTruckSplit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnAddTruckSplit.Location = new System.Drawing.Point(186, 63);
-            this.btnAddTruckSplit.Name = "btnAddTruckSplit";
-            this.btnAddTruckSplit.Size = new System.Drawing.Size(55, 39);
-            this.btnAddTruckSplit.TabIndex = 28;
-            this.btnAddTruckSplit.Text = "Add";
-            this.btnAddTruckSplit.Click += new System.EventHandler(this.btnAddTruckSplit_Click);
-            //
-            // btnAddGrossSplit
-            //
-            this.btnAddGrossSplit.Enabled = false;
-            this.btnAddGrossSplit.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnAddGrossSplit.Location = new System.Drawing.Point(186, 18);
-            this.btnAddGrossSplit.Name = "btnAddGrossSplit";
-            this.btnAddGrossSplit.Size = new System.Drawing.Size(55, 39);
-            this.btnAddGrossSplit.TabIndex = 29;
-            this.btnAddGrossSplit.Text = "Add";
-            this.btnAddGrossSplit.Click += new System.EventHandler(this.btnAddGrossSplit_Click);
-            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -1059,6 +1059,8 @@ namespace ScaleDisplay
             this.tabWeight.PerformLayout();
             this.grpSplit.ResumeLayout(false);
             this.grpSplit.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown2)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numBushelWeight)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numEmptyWeight)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numGrossWeight)).EndInit();
@@ -1074,8 +1076,6 @@ namespace ScaleDisplay
             ((System.ComponentModel.ISupportInitialize)(this.numMinWeight)).EndInit();
             this.grpUnits.ResumeLayout(false);
             this.grpUnits.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown2)).EndInit();
             this.ResumeLayout(false);
 
         }

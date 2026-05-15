@@ -175,12 +175,17 @@ namespace ScaleDisplay
         }
         private void CommPort_PortDisconnected()
         {
-            // Ensure UI updates happen on the main thread
             if (InvokeRequired)
             {
                 BeginInvoke(new Action(CommPort_PortDisconnected));
                 return;
             }
+            _currentWeight = 0f;
+            lblWeightValue.Text = "0 " + _currentUnits;
+            lblWeightValue.BackColor = SystemColors.Control;
+            _connectionMode = ConnectionMode.None;
+            lblConnectionStatus.Text = "No connection";
+            ResetStateMachine();
             UpdateForm();
         }
         private void UpdateForm(bool UpdateCombo = true)
@@ -1794,9 +1799,10 @@ namespace ScaleDisplay
             if (_connectionMode != ConnectionMode.Udp) return;
             if ((DateTime.Now - _lastUdpReceived).TotalSeconds < 2) return;
 
+            _currentWeight = 0f;
             _connectionMode = ConnectionMode.None;
             lblConnectionStatus.Text = "No connection";
-            lblWeightValue.Text = "---";
+            lblWeightValue.Text = "0 " + _currentUnits;
             lblWeightValue.BackColor = SystemColors.Control;
             ResetStateMachine();
             UpdateManualControls();
