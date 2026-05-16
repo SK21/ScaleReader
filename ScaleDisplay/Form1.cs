@@ -7,6 +7,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -117,6 +118,10 @@ namespace ScaleDisplay
 
         private BigDisplayForm _bigDisplay;
         private bool _appClosing;
+
+        [DllImport("kernel32.dll")]
+        private static extern uint SetThreadExecutionState(uint esFlags);
+        private const uint ES_DISPLAY_REQUIRED = 0x00000002;
 
         // Print state
         private List<string[]> _printRows;
@@ -756,6 +761,7 @@ namespace ScaleDisplay
         public void ApplyWeightReading(float weightVal, string scaleUnits,
                                         Action extraUiAction = null)
         {
+            SetThreadExecutionState(ES_DISPLAY_REQUIRED);
             string displayUnits = _manualUnits;
             float displayWeight = (scaleUnits == "kg" && displayUnits == "lb") ? weightVal * 2.20462f
                                 : (scaleUnits == "lb" && displayUnits == "kg") ? weightVal / 2.20462f
@@ -2003,7 +2009,6 @@ namespace ScaleDisplay
                     _bigDisplay.Show(this);
                     _bigDisplay.UpdateWeight(lblWeightValue.Text);
                 }
-                SetWeightDisplay("32,563");
             }
             else
             {

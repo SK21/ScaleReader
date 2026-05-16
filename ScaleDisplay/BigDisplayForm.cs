@@ -55,7 +55,7 @@ namespace ScaleDisplay
             string text = lblWeight.Text;
             if (string.IsNullOrEmpty(text)) return;
 
-            float lo = 10f, hi = 3000f;
+            float lo = 10f, hi = Math.Min(ClientSize.Height * 0.88f, 800f);
             while (hi - lo > 1f)
             {
                 float mid = (lo + hi) / 2f;
