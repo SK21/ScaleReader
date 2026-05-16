@@ -115,6 +115,9 @@ namespace ScaleDisplay
         private readonly List<float> _splitTruckSections = new List<float>();
         private bool _splitNoteActive;
 
+        private BigDisplayForm _bigDisplay;
+        private bool _appClosing;
+
         // Print state
         private List<string[]> _printRows;
         private DateTime _printDate;
@@ -181,7 +184,7 @@ namespace ScaleDisplay
                 return;
             }
             _currentWeight = 0f;
-            lblWeightValue.Text = "0 " + _currentUnits;
+            SetWeightDisplay("0 " + _currentUnits);
             lblWeightValue.BackColor = SystemColors.Control;
             _connectionMode = ConnectionMode.None;
             lblConnectionStatus.Text = "No connection";
@@ -689,7 +692,7 @@ namespace ScaleDisplay
                     cmbPort.Enabled = true;
                     btnRefresh.Enabled = true;
                     UpdateManualControls();
-                    lblWeightValue.Text = "---";
+                    SetWeightDisplay("---");
                     lblWeightValue.BackColor = SystemColors.Control;
                     lblBushelsValue.Text = "---";
                     lblNetValue.Text = "---";
@@ -767,7 +770,7 @@ namespace ScaleDisplay
             {
                 extraUiAction?.Invoke();
                 ApplyUnits(displayUnits);
-                lblWeightValue.Text = displayWeight.ToString("N0") + " " + displayUnits;
+                SetWeightDisplay(displayWeight.ToString("N0") + " " + displayUnits);
                 UpdateNet();
                 UpdateBushels();
             }));
@@ -1802,7 +1805,7 @@ namespace ScaleDisplay
             _currentWeight = 0f;
             _connectionMode = ConnectionMode.None;
             lblConnectionStatus.Text = "No connection";
-            lblWeightValue.Text = "0 " + _currentUnits;
+            SetWeightDisplay("0 " + _currentUnits);
             lblWeightValue.BackColor = SystemColors.Control;
             ResetStateMachine();
             UpdateManualControls();
@@ -1848,10 +1851,13 @@ namespace ScaleDisplay
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            _appClosing = true;
             _udpWatchdog?.Stop();
             _udpWatchdog?.Dispose();
             _udpRunning = false;
             try { _udp?.Close(); } catch { }
+            if (_bigDisplay != null && !_bigDisplay.IsDisposed)
+                _bigDisplay.Close();
         }
 
         public void DrawGroupBox(GroupBox box, Graphics g, Color BackColor, Color textColor, Color borderColor, float borderWidth = 1)
@@ -1903,6 +1909,7 @@ namespace ScaleDisplay
         private void Form1_Load(object sender, EventArgs e)
         {
             ckLP7515.Checked = Properties.Settings.Default.LP7515;
+            ckLargeDisplay.Checked = Properties.Settings.Default.LargeDisplay;
             LoadEmptyWeight();
             LoadCropSettings();
             LoadAutoWeighSettings();
@@ -1966,6 +1973,43 @@ namespace ScaleDisplay
 
             txtCommand.Enabled = !ckLP7515.Checked;
             btnSendCommand.Enabled = !ckLP7515.Checked;
+        }
+
+        // ── Large display ────────────────────────────────────────────────
+
+        private void SetWeightDisplay(string text)
+        {
+            lblWeightValue.Text = text;
+            if (_bigDisplay != null && !_bigDisplay.IsDisposed)
+                _bigDisplay.UpdateWeight(text);
+        }
+
+        private void ckLargeDisplay_CheckedChanged(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.LargeDisplay = ckLargeDisplay.Checked;
+            Properties.Settings.Default.Save();
+
+            if (ckLargeDisplay.Checked)
+            {
+                if (_bigDisplay == null || _bigDisplay.IsDisposed)
+                {
+                    _bigDisplay = new BigDisplayForm { Owner = this };
+                    _bigDisplay.FormClosed += (s, ea) =>
+                    {
+                        _bigDisplay = null;
+                        if (!_appClosing && ckLargeDisplay.Checked)
+                            ckLargeDisplay.Checked = false;
+                    };
+                    _bigDisplay.Show(this);
+                    _bigDisplay.UpdateWeight(lblWeightValue.Text);
+                }
+                SetWeightDisplay("32,563");
+            }
+            else
+            {
+                if (_bigDisplay != null && !_bigDisplay.IsDisposed)
+                    _bigDisplay.Close();
+            }
         }
     }
 }

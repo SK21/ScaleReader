@@ -58,5 +58,17 @@ namespace ScaleDisplay.Properties {
                 this["LP7515"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool LargeDisplay {
+            get {
+                return ((bool)(this["LargeDisplay"]));
+            }
+            set {
+                this["LargeDisplay"] = value;
+            }
+        }
     }
 }

@@ -93,6 +93,7 @@ namespace ScaleDisplay
             this.grpUnits = new System.Windows.Forms.GroupBox();
             this.rdoImperial = new System.Windows.Forms.RadioButton();
             this.rdoMetric = new System.Windows.Forms.RadioButton();
+            this.ckLargeDisplay = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.numStability)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numSignal)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numInterval)).BeginInit();
@@ -794,6 +795,7 @@ namespace ScaleDisplay
             // 
             // tabSettings
             // 
+            this.tabSettings.Controls.Add(this.ckLargeDisplay);
             this.tabSettings.Controls.Add(this.gbData);
             this.tabSettings.Controls.Add(this.grpAutoWeigh);
             this.tabSettings.Controls.Add(this.grpUnits);
@@ -1035,6 +1037,17 @@ namespace ScaleDisplay
             this.rdoMetric.Text = "Metric (kg)";
             this.rdoMetric.CheckedChanged += new System.EventHandler(this.rdoUnits_CheckedChanged);
             // 
+            // ckLargeDisplay
+            // 
+            this.ckLargeDisplay.AutoSize = true;
+            this.ckLargeDisplay.Location = new System.Drawing.Point(24, 570);
+            this.ckLargeDisplay.Name = "ckLargeDisplay";
+            this.ckLargeDisplay.Size = new System.Drawing.Size(173, 21);
+            this.ckLargeDisplay.TabIndex = 101;
+            this.ckLargeDisplay.Text = "Additional large display";
+            this.ckLargeDisplay.UseVisualStyleBackColor = true;
+            this.ckLargeDisplay.CheckedChanged += new System.EventHandler(this.ckLargeDisplay_CheckedChanged);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -1069,6 +1082,7 @@ namespace ScaleDisplay
             this.tabReport.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvReport)).EndInit();
             this.tabSettings.ResumeLayout(false);
+            this.tabSettings.PerformLayout();
             this.gbData.ResumeLayout(false);
             this.gbData.PerformLayout();
             this.grpAutoWeigh.ResumeLayout(false);
@@ -1163,5 +1177,6 @@ namespace ScaleDisplay
         private NumericUpDown numericUpDown1;
         private Button btnAddGrossSplit;
         private Button btnAddTruckSplit;
+        private CheckBox ckLargeDisplay;
     }
 }
